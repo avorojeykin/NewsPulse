@@ -1,0 +1,548 @@
+# NewsPulse - Development Documentation
+
+## Project Overview
+
+NewsPulse is a real-time news aggregation platform for Whop that delivers breaking news across three verticals: Crypto, Stocks, and Sports Betting.
+
+**Current Phase**: Phase 1 (MVP) - ✅ COMPLETE
+
+**Status**:
+- ✅ RSS news aggregation working (14 feeds across 3 verticals)
+- ✅ 15-minute delay implementation working
+- ✅ Frontend displaying news in Whop
+- ✅ Deduplication and database storage working
+- 🔄 X (Twitter) integration - PENDING (Phase 2)
+- 🔄 AI features - PENDING (Phase 3)
+
+**News Sources**:
+- **RSS Feeds**: Free, reliable aggregation from major news sources
+- **X (Twitter)**: Real-time breaking news from key accounts (1 feed per community)
+
+## Architecture Documentation
+
+### System Architecture
+- **Frontend**: Next.js 14 (App Router) with TypeScript, embedded in Whop
+- **Backend**: Node.js workers with BullMQ job queues
+- **Database**: PostgreSQL for persistent data
+- **Cache**: Redis for deduplication and rate limiting
+- **Integration**: Whop SDK for authentication and chat delivery
+
+### Data Flow
+```
+News Sources → Workers → Deduplication (Redis) → Format → Whop Channels
+                              ↓
+                         Database Storage
+```
+
+## Technology Stack
+
+### Frontend
+- Next.js 14 (App Router)
+- TypeScript
+- Tailwind CSS
+- @whop/sdk
+- React Query
+- Lucide React (icons)
+
+### Backend
+- Node.js 20+
+- Express.js/Fastify
+- BullMQ (job queues)
+- TypeScript
+- node-cron (scheduling)
+
+### Infrastructure
+- PostgreSQL (Supabase)
+- Redis (Upstash)
+- Vercel (frontend hosting)
+- Railway (backend hosting)
+
+### News Sources
+
+**Currently Active (14 RSS Feeds)**:
+- **Crypto (4 feeds)**: CoinDesk, Cointelegraph, Decrypt, CryptoSlate
+- **Stocks (5 feeds)**: Yahoo Finance, MarketWatch, Seeking Alpha, Benzinga, CNBC
+- **Sports (4 feeds)**: ESPN, CBS Sports, Yahoo Sports, Bleacher Report
+
+**Potential Expansion (Phase 1.5)**:
+- **Crypto**: Bitcoin Magazine, The Block, Coinbase Blog, Kraken News, Binance News
+- **Stocks**: The Motley Fool, Barron's, Investor's Business Daily, Reuters Business, Bloomberg
+- **Sports**: The Athletic (betting), Action Network, Covers.com, Vegas Insider, Oddschecker
+
+**X API v2** (Phase 2): Real-time filtered stream for monitored accounts
+- Free tier: 1 account per community
+- Premium tier: Up to 10 accounts
+
+**Dependencies**: `rss-parser` for RSS parsing
+
+## Database Schema
+
+### Core Tables
+1. **users** - User profiles synced from Whop
+2. **experiences** - Whop app installations
+3. **news_items** - Aggregated news with deduplication
+4. **twitter_accounts** - Monitored X accounts
+5. **delivery_logs** - Analytics and tracking
+
+### Key Indexes
+- news_items.hash (deduplication)
+- news_items.vertical (filtering)
+- news_items.published_at (sorting)
+
+## Development Workflows
+
+### Local Development Setup
+1. Clone repository
+2. Install dependencies (frontend + backend)
+3. Start Docker services (PostgreSQL + Redis)
+4. Run database migrations
+5. Configure environment variables
+6. Start backend workers
+7. Start frontend dev server
+
+### Testing Strategy
+- Unit tests for core logic
+- Integration tests for API endpoints
+- E2E tests for critical user flows
+- Load testing for worker performance
+
+### Deployment Process
+1. Frontend → Vercel (auto-deploy from main branch)
+2. Backend → Railway (manual deploy with env vars)
+3. Database migrations → Run on Railway PostgreSQL
+4. Environment variables → Set in respective platforms
+
+## API Integration Details
+
+### Whop SDK Integration
+- Authentication via validateToken()
+- Access control via hasAccess()
+- Message delivery via sendMessage()
+- Webhook handling for membership events
+
+### News Source Polling
+- **RSS Feeds**: 60-second intervals for all verticals (Crypto, Stocks, Sports)
+  - Fetches 5 most recent items per feed
+  - Total: ~15 feeds × 5 items = 75 items per minute max
+  - No rate limits, completely free
+  - Respectful 500ms delay between feed requests
+- **X Monitoring**: Real-time filtered stream (1 account per community)
+  - WebSocket connection to X API v2
+  - Instant delivery of tweets
+  - Filter by specific account or keywords
+
+### News Processing Pipeline
+1. Receive raw news item
+2. Check for duplicates (hash-based)
+3. Format for Whop delivery
+4. Store in database
+5. Send to appropriate channels
+
+## Feature Implementation
+
+### Tier-Based Access Control
+
+**Free Tier** (MVP - Current Focus):
+- All 3 categories: Crypto, Stocks, Sports Betting
+- 15-minute delay on news delivery
+- 1 X (Twitter) feed connection per community
+- Posted to Whop channels
+
+**Premium Tier** ($49/mo - Phase 2):
+- Real-time news delivery (no delay)
+- Up to 10 X feed connections
+- Priority message delivery
+
+**Pro Tier** ($149/mo - Phase 3):
+- Everything in Premium
+- **AI-Powered Features**:
+  - **Smart Summaries**: 2-3 sentence TL;DR for each article
+  - **Sentiment Analysis**: Bullish/Bearish/Neutral indicators with confidence scores
+  - **Price Impact Predictions**: AI estimates if news will move markets (High/Medium/Low)
+  - **Related News Clustering**: Group similar stories across sources
+  - **Key Entity Extraction**: Auto-tag companies, people, coins mentioned
+  - **Controversy Detection**: Flag potentially polarizing or breaking news
+  - **Trend Analysis**: Daily/weekly summaries of dominant themes
+  - **Smart Notifications**: AI filters for only significant news matching user interests
+  - **Question Answering**: Ask questions about news context (e.g., "Why is Bitcoin up?")
+  - **Comparative Analysis**: "How does this compare to similar events in the past?"
+- Custom filtering and advanced search
+
+### Deduplication Strategy
+- Generate SHA-256 hash from title + content
+- Store in Redis with 24-hour TTL
+- Skip processing if hash exists
+
+### Message Formatting
+```
+{emoji} **{source}**
+{title}
+🔗 [Read More]({url})
+```
+
+## Configuration Management
+
+### Environment Variables
+#### Frontend (.env.local)
+- NEXT_PUBLIC_WHOP_APP_ID
+- WHOP_API_KEY
+- DATABASE_URL
+- REDIS_URL
+- BACKEND_WORKER_URL
+
+#### Backend (.env)
+- WHOP_API_KEY
+- DATABASE_URL
+- REDIS_URL
+- TWITTER_BEARER_TOKEN (X API v2 - for 1 feed per community)
+- PORT
+- NODE_ENV
+
+**Note**: No paid API keys required for MVP! RSS feeds are free.
+
+### Feature Flags
+- Enable/disable specific news sources
+- Control polling frequencies
+- Adjust deduplication TTL
+- Toggle specific verticals (crypto/stocks/sports)
+
+## Performance Optimization
+
+### Backend Workers
+- Concurrent processing (BullMQ concurrency: 5)
+- Rate limiting per API source
+- Connection pooling for database
+- Redis caching for frequent queries
+
+### Frontend
+- React Query for data caching
+- Optimistic UI updates
+- Lazy loading for news feeds
+- WebSocket connections for real-time updates
+
+### Database
+- Indexed queries for news retrieval
+- Partitioning by date for news_items
+- Connection pooling
+- Read replicas for analytics
+
+## RSS Feed Implementation
+
+### RSS Worker Architecture
+
+**Dependencies**:
+```bash
+npm install rss-parser
+```
+
+**Feed Sources** (15 total feeds, all free):
+
+**Crypto (5 feeds)**:
+- CoinDesk: `https://www.coindesk.com/arc/outboundfeeds/rss/`
+- Cointelegraph: `https://cointelegraph.com/rss`
+- Decrypt: `https://decrypt.co/feed`
+- CryptoSlate: `https://cryptoslate.com/feed/`
+- Bitcoin Magazine: `https://bitcoinmagazine.com/.rss/full/`
+
+**Stocks (5 feeds)**:
+- Yahoo Finance: `https://finance.yahoo.com/news/rssindex`
+- MarketWatch: `https://www.marketwatch.com/rss/topstories`
+- Seeking Alpha: `https://seekingalpha.com/feed.xml`
+- Benzinga: `https://www.benzinga.com/feed`
+- CNBC: `https://www.cnbc.com/id/100003114/device/rss/rss.html`
+
+**Sports (4 feeds)**:
+- ESPN: `https://www.espn.com/espn/rss/news`
+- Bleacher Report: `https://bleacherreport.com/articles/feed`
+- CBS Sports: `https://www.cbssports.com/rss/headlines`
+- Yahoo Sports: `https://sports.yahoo.com/rss/`
+
+### Worker Behavior
+
+**Polling Frequency**: 60 seconds
+- Fetches 5 most recent items per feed
+- Processes all verticals in parallel
+- Respectful 500ms delay between feeds
+- Total: ~75 items per minute max
+
+**Deduplication**:
+- Hash: SHA-256 of `title + url`
+- Stored in Redis with 24-hour TTL
+- Prevents duplicate news across feeds
+
+**Processing Flow**:
+```
+RSS Worker (60s) → Parse Feeds → Generate Hash → Check Redis
+                                                      ↓
+                                              New? → Queue for Processing
+                                              Duplicate? → Skip
+```
+
+### X (Twitter) Integration
+
+**Real-Time Feed**:
+- 1 account per community (free tier)
+- X API v2 Filtered Stream
+- WebSocket connection for instant delivery
+- No polling required
+
+**Implementation**:
+```typescript
+// Monitor specific account
+const rules = [
+  { value: 'from:VitalikButerin', tag: 'crypto' }
+];
+
+// Real-time stream
+stream.on('data', (tweet) => {
+  // Process immediately, no delay
+  processNews({
+    source: `X/@${account}`,
+    vertical: 'crypto',
+    title: tweet.text.substring(0, 100),
+    content: tweet.text,
+    url: `https://twitter.com/${account}/status/${tweet.id}`,
+    publishedAt: new Date(tweet.created_at)
+  });
+});
+```
+
+## Monitoring & Analytics
+
+### Key Metrics
+- News processing latency (target: <5 seconds)
+- RSS feed fetch success rate (target: >95%)
+- Deduplication hit rate (target: ~30-40%)
+- User engagement per tier
+- Error rates by worker
+
+### Logging Strategy
+- Structured JSON logs
+- Log levels: ERROR, WARN, INFO, DEBUG
+- Separate logs per worker
+- Centralized logging (Railway logs)
+
+## Security Considerations
+
+### API Key Management
+- Store in environment variables
+- Never commit to Git
+- Rotate keys quarterly
+- Use different keys per environment
+
+### User Data Protection
+- Hash sensitive preferences
+- Comply with GDPR/CCPA
+- Secure webhook endpoints
+- Rate limit API endpoints
+
+### Whop Integration Security
+- Validate webhook signatures
+- Verify token authenticity
+- Implement CORS properly
+- Sanitize user inputs
+
+## Monetization Implementation (Future Phase)
+
+### Tier Detection
+- MVP: Free tier only
+- Future: Premium/Pro tier detection from Whop membership data
+
+### Analytics Tracking
+- User engagement metrics
+- News delivery success rates
+- Channel activity monitoring
+
+## Scaling Strategy
+
+### Phase 1 (MVP - Current)
+- **RSS News Aggregation**: 15 free RSS feeds across 3 categories
+  - Crypto: CoinDesk, Cointelegraph, Decrypt, CryptoSlate, Bitcoin Magazine
+  - Stocks: Yahoo Finance, MarketWatch, Seeking Alpha, Benzinga, CNBC
+  - Sports: ESPN, Bleacher Report, CBS Sports, Yahoo Sports
+- **X Integration**: Real-time feed from 1 account per community
+- **15-minute delay**: Implemented via BullMQ delayed jobs
+- **Whop Integration**: Message posting to channels
+- **Free tier only**: Validate product-market fit
+- **Cost**: $20-50/mo (infrastructure only, no API costs!)
+- **Target**: 100-500 users
+
+### Phase 2 (Premium Launch - Future)
+- Remove 15-minute delay for premium
+- Increase X feeds to 10 connections
+- Real-time delivery optimization
+- Premium tier monetization
+- 1,000-5,000 users
+
+### Phase 3 (Pro Tier - Future)
+- AI summaries with OpenAI GPT-4
+- Sentiment analysis (bullish/bearish/neutral)
+- Custom keywords and filtering
+- Advanced analytics dashboard
+- 10,000+ users
+
+## Troubleshooting Guide
+
+### Common Issues
+1. **News not appearing**: Check RSS feed URLs, channel names, worker logs
+2. **Duplicates**: Verify Redis connection, check hash generation (title + url)
+3. **Slow performance**: Optimize DB queries, add indexes, cache RSS responses
+4. **RSS feed errors**: Some feeds may be temporarily down, log and skip gracefully
+5. **X stream disconnects**: Implement reconnection logic with exponential backoff
+
+### Debug Commands
+```bash
+# Check backend health
+curl http://localhost:3001/health
+
+# View queue status
+npm run queue:monitor
+
+# Database inspection
+psql $DATABASE_URL -c "SELECT COUNT(*) FROM news_items"
+
+# Redis inspection
+redis-cli keys "news:*"
+```
+
+## Development Best Practices
+
+### Code Organization
+- Modular worker design
+- Shared types across frontend/backend
+- Utility functions in /shared
+- Clear separation of concerns
+
+### Git Workflow
+- Feature branches for new work
+- Pull requests with reviews
+- Semantic commit messages
+- Automated CI/CD with GitHub Actions
+
+### Documentation
+- Inline code comments for complex logic
+- API documentation with examples
+- README for each major component
+- Update CLAUDE.md with architectural changes
+
+## Future Enhancements
+
+### Planned Features (Post-MVP)
+- AI summaries and sentiment analysis (Pro tier)
+- 10 X (Twitter) feeds per community (Premium tier)
+- Custom RSS feed additions by users
+- Mobile push notifications
+- Webhook alerts to external services
+- Discord/Telegram integration
+
+### Technical Improvements (Post-MVP)
+- WebSocket real-time updates
+- Advanced caching with CDN
+- Multi-region deployment
+- GraphQL API option
+
+## Resources & References
+
+### Official Documentation
+- [Whop Developer Docs](https://docs.whop.com)
+- [Next.js Documentation](https://nextjs.org/docs)
+- [BullMQ Documentation](https://docs.bullmq.io)
+- [OpenAI API Reference](https://platform.openai.com/docs)
+
+### Community Support
+- Whop Discord community
+- GitHub Issues for bug tracking
+- Developer support channels
+
+## Project Timeline
+
+### ✅ Phase 1: MVP Foundation (COMPLETE)
+- ✅ Repository setup and project structure
+- ✅ Database schema design (PostgreSQL + Redis)
+- ✅ RSS worker with 14 feeds (Crypto, Stocks, Sports)
+- ✅ News processor with deduplication
+- ✅ BullMQ job queue with 15-minute delay
+- ✅ Whop integration and authentication
+- ✅ Frontend with tab navigation and news display
+- ✅ Local development environment working
+- ✅ API proxy route for cross-port communication
+
+**Achievements**:
+- 55+ news items processed successfully
+- Zero-cost news aggregation (free RSS feeds)
+- Clean UI with category tabs
+- Hash-based deduplication working
+
+### 🔄 Phase 1.5: RSS Expansion (NEXT - Optional)
+- Add 10-15 more RSS feeds per vertical
+- Implement feed health monitoring
+- Add retry logic for failed feeds
+- Create admin dashboard for feed management
+- Optimize polling intervals based on feed activity
+
+### 📋 Phase 2: X (Twitter) Integration (2-3 weeks)
+- Setup X API v2 Developer Account
+- Implement filtered stream for 1 account
+- Add X account management UI
+- Real-time tweet processing
+- Integrate with existing news pipeline
+- Test with popular crypto/stocks/sports accounts
+
+### 🚀 Phase 3: Premium Features (1-2 months)
+- Remove 15-minute delay for Premium tier
+- Implement 10 X feed connections
+- Add tier-based access control
+- Payment integration via Whop
+- User tier management
+
+### 🤖 Phase 4: AI Features (2-3 months)
+- OpenAI API integration
+- Smart summaries (GPT-4)
+- Sentiment analysis pipeline
+- Price impact predictions
+- Entity extraction and tagging
+- Trend analysis dashboard
+- Question answering system
+- Custom notifications based on AI filtering
+
+### 📈 Phase 5: Scale & Polish (Ongoing)
+- Production deployment (Vercel + Railway)
+- Performance monitoring and optimization
+- User feedback integration
+- Mobile responsive improvements
+- Analytics dashboard
+- Marketing and growth
+
+## Success Metrics
+
+### Technical KPIs (MVP)
+- News delivery latency: <30 seconds
+- System uptime: >99%
+- API error rate: <1%
+- Deduplication accuracy: >90%
+
+### Business KPIs (MVP)
+- User acquisition: 10+ communities in first month
+- Active users: 100+ in first month
+- News items delivered: 1000+ per day
+- User satisfaction: Gather feedback for improvements
+
+## Risk Mitigation
+
+### Technical Risks
+- API rate limits → Implement caching and batching
+- Service downtime → Multi-region deployment
+- Data loss → Automated backups
+- Security breaches → Regular security audits
+
+### Business Risks
+- Low conversion rates → A/B test pricing
+- High churn → Improve value proposition
+- Competition → Differentiate with speed and quality
+- API cost overruns → Optimize usage patterns
+
+---
+
+**Last Updated**: 2025-10-04
+**Maintained By**: Development Team
+**Review Schedule**: Weekly during development, monthly post-launch
