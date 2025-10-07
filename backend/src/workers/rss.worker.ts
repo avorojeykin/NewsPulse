@@ -1,9 +1,9 @@
 import Parser from 'rss-parser';
 import { Queue } from 'bullmq';
-import { RSS_FEEDS, Vertical } from '../config/feeds';
-import { NewsItem } from '../types/news';
-import { generateHash } from '../services/newsProcessor';
-import { connectRedis } from '../config/redis';
+import { RSS_FEEDS, Vertical } from '../config/feeds.js';
+import { NewsItem } from '../types/news.js';
+import { generateHash } from '../services/newsProcessor.js';
+import { connectRedis } from '../config/redis.js';
 import * as dotenv from 'dotenv';
 
 dotenv.config();
