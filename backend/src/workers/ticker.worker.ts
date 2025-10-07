@@ -1,5 +1,5 @@
 import Parser from 'rss-parser';
-import { generateHash, processNewsItem } from '../services/newsProcessor';
+import { generateHash, processNewsItem } from '../services/newsProcessor.js';
 
 const parser = new Parser();
 

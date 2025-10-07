@@ -1,7 +1,7 @@
 import crypto from 'crypto';
-import { NewsItem, ProcessedNewsItem } from '../types/news';
-import { query } from '../config/database';
-import { checkDuplicate, markAsProcessed } from '../config/redis';
+import { NewsItem, ProcessedNewsItem } from '../types/news.js';
+import { query } from '../config/database.js';
+import { checkDuplicate, markAsProcessed } from '../config/redis.js';
 
 export function generateHash(title: string, url: string): string {
   return crypto.createHash('sha256').update(title + url).digest('hex');

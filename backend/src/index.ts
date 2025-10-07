@@ -1,10 +1,10 @@
 import express from 'express';
 import * as dotenv from 'dotenv';
-import { pool } from './config/database';
-import { connectRedis } from './config/redis';
-import { getRecentNews } from './services/newsProcessor';
-import { fetchTickerNews } from './workers/ticker.worker';
-import { getUserTier, getDeliveryDelay } from './services/whopTierService';
+import { pool } from './config/database.js';
+import { connectRedis } from './config/redis.js';
+import { getRecentNews } from './services/newsProcessor.js';
+import { fetchTickerNews } from './workers/ticker.worker.js';
+import { getUserTier, getDeliveryDelay } from './services/whopTierService.js';
 
 dotenv.config();
 
