@@ -45,3 +45,8 @@ Thumbs.db
 .railway
 *.tsbuildinfo
 next-env.d.ts
+/backend/.env.production
+/PRODUCTION_CREDENTIALS.md
+
+# Documentation (personal notes)
+docs/

@@ -25,7 +25,12 @@
       "Bash(git add:*)",
       "Bash(git rm:*)",
       "Bash(rm:*)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(git commit:*)",
+      "Bash(ping:*)",
+      "Bash(nslookup:*)",
+      "Bash(set NODE_OPTIONS=--dns-result-order=ipv6first)",
+      "Bash(git remote remove:*)"
     ],
     "deny": [],
     "ask": []
