@@ -37,6 +37,7 @@ app.get('/api/news', async (req, res) => {
     const { vertical, limit } = req.query;
     const news = await getRecentNews(
       vertical as string | undefined,
+      undefined,
       limit ? parseInt(limit as string) : 20
     );
     res.json({ news, count: news.length });
