@@ -9,8 +9,8 @@ import { ArrowLeft } from 'lucide-react';
 export default function CategoryLanding() {
   const [selectedCategory, setSelectedCategory] = useState<CategoryId | null>(null);
 
-  // Show news feed if category is selected
-  if (selectedCategory && !categories[selectedCategory].comingSoon) {
+  // Show news feed if category is selected (only for available categories)
+  if (selectedCategory && !categories[selectedCategory].comingSoon && selectedCategory !== 'xMentions') {
     return (
       <div className="min-h-screen" style={{ backgroundColor: '#0a0e1a' }}>
         <div className="max-w-7xl mx-auto px-4 py-8">
@@ -24,7 +24,7 @@ export default function CategoryLanding() {
           </button>
 
           {/* Pass the selected category to NewsFeeds */}
-          <NewsFeeds initialCategory={selectedCategory} />
+          <NewsFeeds initialCategory={selectedCategory as 'crypto' | 'stocks' | 'sports'} />
         </div>
       </div>
     );
