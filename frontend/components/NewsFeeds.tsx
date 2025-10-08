@@ -37,26 +37,10 @@ export default function NewsFeeds({ initialCategory = 'crypto' }: NewsFeedsProps
 
   // Check premium status when SDK is ready
   useEffect(() => {
-    async function checkPremiumStatus() {
-      if (!iframeSdk) {
-        setCheckingTier(false);
-        return;
-      }
-
-      try {
-        const result = await iframeSdk.hasAccess({
-          to: process.env.NEXT_PUBLIC_WHOP_PREMIUM_ACCESS_PASS_ID!,
-        });
-        setIsPremium(result);
-      } catch (err) {
-        console.error('Error checking premium status:', err);
-        setIsPremium(false);
-      } finally {
-        setCheckingTier(false);
-      }
-    }
-
-    checkPremiumStatus();
+    // TODO: Implement proper tier checking with backend API
+    // For now, default to free tier (15-minute delay)
+    setIsPremium(false);
+    setCheckingTier(false);
   }, [iframeSdk]);
 
   useEffect(() => {
