@@ -5,6 +5,8 @@ import { connectRedis } from './config/redis.js';
 import { getRecentNews } from './services/newsProcessor.js';
 import { fetchTickerNews } from './workers/ticker.worker.js';
 import { getUserTier, getDeliveryDelay } from './services/whopTierService.js';
+import { startRSSWorker } from './workers/rss.worker.js';
+import { startNewsProcessor } from './workers/news.processor.js';
 
 dotenv.config();
 
@@ -108,11 +110,20 @@ async function startServer() {
     // Connect to Redis
     await connectRedis();
 
+    // Start API server
     app.listen(PORT, () => {
       console.log(`🚀 Backend server running on http://localhost:${PORT}`);
       console.log(`📡 Health check: http://localhost:${PORT}/health`);
       console.log(`📰 News API: http://localhost:${PORT}/api/news`);
     });
+
+    // Start workers
+    console.log('\n🔧 Starting background workers...');
+    await Promise.all([
+      startRSSWorker(),
+      startNewsProcessor(),
+    ]);
+    console.log('✅ All workers started successfully\n');
   } catch (error) {
     console.error('❌ Failed to start server:', error);
     process.exit(1);
