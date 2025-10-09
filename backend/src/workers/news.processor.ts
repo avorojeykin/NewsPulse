@@ -1,8 +1,8 @@
 import { Worker } from 'bullmq';
-import { NewsItem } from '../types/news';
-import { processNewsItem } from '../services/newsProcessor';
-import { pool } from '../config/database';
-import { connectRedis } from '../config/redis';
+import { NewsItem } from '../types/news.js';
+import { processNewsItem } from '../services/newsProcessor.js';
+import { pool } from '../config/database.js';
+import { connectRedis } from '../config/redis.js';
 import * as dotenv from 'dotenv';
 
 dotenv.config();
@@ -61,7 +61,3 @@ export async function startNewsProcessor() {
   console.log('📡 News Processor Worker running - waiting for jobs...\n');
 }
 
-// Run if executed directly
-if (require.main === module) {
-  startNewsProcessor().catch(console.error);
-}

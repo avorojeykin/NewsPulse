@@ -36,11 +36,20 @@ app.get('/health', async (req, res) => {
 // Get recent news (for frontend)
 app.get('/api/news', async (req, res) => {
   try {
-    const { vertical, limit } = req.query;
+    const { vertical, limit, userId } = req.query;
+
+    // Determine delay based on user tier
+    let delayMinutes = 15; // Default to free tier (15-minute delay)
+    if (userId) {
+      const delay = await getDeliveryDelay(userId as string);
+      delayMinutes = delay / (60 * 1000); // Convert ms to minutes
+    }
+
     const news = await getRecentNews(
       vertical as string | undefined,
       undefined,
-      limit ? parseInt(limit as string) : 20
+      limit ? parseInt(limit as string) : 20,
+      delayMinutes
     );
     res.json({ news, count: news.length });
   } catch (error) {
@@ -53,7 +62,7 @@ app.get('/api/news', async (req, res) => {
 app.get('/api/news/:vertical', async (req, res) => {
   try {
     const { vertical } = req.params;
-    const { limit, ticker } = req.query;
+    const { limit, ticker, userId } = req.query;
 
     if (!['crypto', 'stocks', 'sports'].includes(vertical)) {
       return res.status(400).json({ error: 'Invalid vertical' });
@@ -64,10 +73,18 @@ app.get('/api/news/:vertical', async (req, res) => {
       await fetchTickerNews(ticker as string);
     }
 
+    // Determine delay based on user tier
+    let delayMinutes = 15; // Default to free tier (15-minute delay)
+    if (userId) {
+      const delay = await getDeliveryDelay(userId as string);
+      delayMinutes = delay / (60 * 1000); // Convert ms to minutes
+    }
+
     const news = await getRecentNews(
       vertical,
       ticker as string | undefined,
-      limit ? parseInt(limit as string) : 20
+      limit ? parseInt(limit as string) : 20,
+      delayMinutes
     );
     res.json({ news, count: news.length });
   } catch (error) {

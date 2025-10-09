@@ -114,7 +114,7 @@ export default async function ExperiencePage({
 			</div>
 
 			{/* Main Content - Category Landing */}
-			<CategoryLanding />
+			<CategoryLanding userId={userId} />
 		</div>
 	);
 }

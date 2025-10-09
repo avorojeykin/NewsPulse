@@ -22,9 +22,10 @@ type Vertical = 'crypto' | 'stocks' | 'sports';
 
 interface NewsFeedsProps {
   initialCategory?: Vertical;
+  userId?: string;
 }
 
-export default function NewsFeeds({ initialCategory = 'crypto' }: NewsFeedsProps) {
+export default function NewsFeeds({ initialCategory = 'crypto', userId }: NewsFeedsProps) {
   const iframeSdk = useIframeSdk();
   const [activeTab, setActiveTab] = useState<Vertical>(initialCategory);
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
@@ -35,24 +36,50 @@ export default function NewsFeeds({ initialCategory = 'crypto' }: NewsFeedsProps
   const [isPremium, setIsPremium] = useState<boolean>(false);
   const [checkingTier, setCheckingTier] = useState(true);
 
-  // Check premium status when SDK is ready
+  // Check premium status when userId is available
   useEffect(() => {
-    // TODO: Implement proper tier checking with backend API
-    // For now, default to free tier (15-minute delay)
-    setIsPremium(false);
-    setCheckingTier(false);
-  }, [iframeSdk]);
+    const checkTier = async () => {
+      if (!userId) {
+        console.warn('No user ID available, defaulting to free tier');
+        setIsPremium(false);
+        setCheckingTier(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/tier/${userId}`);
+        if (!response.ok) {
+          console.error('Failed to check tier, defaulting to free');
+          setIsPremium(false);
+          setCheckingTier(false);
+          return;
+        }
+
+        const data = await response.json();
+        setIsPremium(data.isPremium);
+        console.log(`✅ User tier: ${data.tier.toUpperCase()} (${data.deliveryDelayMinutes}min delay)`);
+      } catch (error) {
+        console.error('Error checking tier:', error);
+        setIsPremium(false);
+      } finally {
+        setCheckingTier(false);
+      }
+    };
+
+    checkTier();
+  }, [userId]);
 
   useEffect(() => {
     fetchNews(activeTab, selectedTicker);
-  }, [activeTab, selectedTicker]);
+  }, [activeTab, selectedTicker, userId]);
 
   const fetchNews = async (vertical: Vertical, ticker: string | null = null) => {
     setLoading(true);
     setError(null);
     try {
       const tickerParam = ticker ? `&ticker=${ticker}` : '';
-      const response = await fetch(`/api/news/${vertical}?limit=20${tickerParam}`);
+      const userParam = userId ? `&userId=${userId}` : '';
+      const response = await fetch(`/api/news/${vertical}?limit=20${tickerParam}${userParam}`);
       if (!response.ok) throw new Error('Failed to fetch news');
       const data = await response.json();
       setNews(data.news);

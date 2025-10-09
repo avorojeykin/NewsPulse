@@ -45,27 +45,39 @@ export async function processNewsItem(item: NewsItem): Promise<boolean> {
   }
 }
 
-export async function getRecentNews(vertical?: string, ticker?: string, limit: number = 20): Promise<ProcessedNewsItem[]> {
+export async function getRecentNews(
+  vertical?: string,
+  ticker?: string,
+  limit: number = 20,
+  delayMinutes: number = 0
+): Promise<ProcessedNewsItem[]> {
   let whereClause = '';
   let params: any[] = [];
   let paramIndex = 1;
 
-  if (vertical && ticker) {
-    whereClause = 'WHERE category = $1 AND ticker = $2';
-    params = [vertical, ticker, limit];
-    paramIndex = 3;
-  } else if (vertical) {
-    whereClause = 'WHERE category = $1';
-    params = [vertical, limit];
-    paramIndex = 2;
-  } else if (ticker) {
-    whereClause = 'WHERE ticker = $1';
-    params = [ticker, limit];
-    paramIndex = 2;
-  } else {
-    params = [limit];
-    paramIndex = 1;
+  // Build WHERE clause based on vertical and ticker
+  const conditions: string[] = [];
+
+  if (vertical) {
+    conditions.push(`category = $${paramIndex}`);
+    params.push(vertical);
+    paramIndex++;
   }
+
+  if (ticker) {
+    conditions.push(`ticker = $${paramIndex}`);
+    params.push(ticker);
+    paramIndex++;
+  }
+
+  // Add time-based filtering for tier delay
+  if (delayMinutes > 0) {
+    conditions.push(`published_at <= NOW() - INTERVAL '${delayMinutes} minutes'`);
+  }
+
+  whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  params.push(limit);
+  paramIndex = params.length;
 
   // Fetch more items than needed to ensure good diversity
   const fetchLimit = limit * 3;
@@ -77,7 +89,7 @@ export async function getRecentNews(vertical?: string, ticker?: string, limit: n
      FROM news_items
      ${whereClause}
      ORDER BY published_at DESC
-     LIMIT $${paramIndex}`,
+     LIMIT $${params.length}`,
     fetchParams
   );
 

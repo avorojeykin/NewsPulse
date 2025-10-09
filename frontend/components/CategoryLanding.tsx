@@ -1,13 +1,79 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import CategoryCard from './CategoryCard';
 import NewsFeeds from './NewsFeeds';
 import { categories, type CategoryId } from '@/lib/theme';
 import { ArrowLeft } from 'lucide-react';
+import { useIframeSdk } from '@whop/react';
 
-export default function CategoryLanding() {
+interface CategoryLandingProps {
+  userId?: string;
+}
+
+export default function CategoryLanding({ userId }: CategoryLandingProps) {
+  const iframeSdk = useIframeSdk();
   const [selectedCategory, setSelectedCategory] = useState<CategoryId | null>(null);
+  const [purchaseError, setPurchaseError] = useState<string | null>(null);
+  const [isPremium, setIsPremium] = useState<boolean>(false);
+  const [checkingTier, setCheckingTier] = useState(true);
+
+  // Check premium status when userId is available
+  useEffect(() => {
+    const checkTier = async () => {
+      if (!userId) {
+        console.warn('No user ID available, defaulting to free tier');
+        setIsPremium(false);
+        setCheckingTier(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/tier/${userId}`);
+        if (!response.ok) {
+          console.error('Failed to check tier, defaulting to free');
+          setIsPremium(false);
+          setCheckingTier(false);
+          return;
+        }
+
+        const data = await response.json();
+        setIsPremium(data.isPremium);
+        console.log(`✅ User tier: ${data.tier.toUpperCase()} (${data.deliveryDelayMinutes}min delay)`);
+      } catch (error) {
+        console.error('Error checking tier:', error);
+        setIsPremium(false);
+      } finally {
+        setCheckingTier(false);
+      }
+    };
+
+    checkTier();
+  }, [userId]);
+
+  const handleUpgrade = async () => {
+    if (!iframeSdk) {
+      setPurchaseError('Please wait for the app to load');
+      return;
+    }
+
+    try {
+      setPurchaseError(null);
+      const result = await iframeSdk.inAppPurchase({
+        planId: 'plan_nox6lp5V6fd2A',
+      });
+
+      if (result.status === 'ok') {
+        alert('🎉 Welcome to Premium! You now have real-time news access.');
+        window.location.reload();
+      } else {
+        setPurchaseError(result.error || 'Purchase cancelled');
+      }
+    } catch (err) {
+      setPurchaseError('Failed to initiate purchase');
+      console.error('Purchase error:', err);
+    }
+  };
 
   // Show news feed if category is selected (only for available categories)
   if (selectedCategory && !categories[selectedCategory].comingSoon && selectedCategory !== 'xMentions') {
@@ -23,8 +89,8 @@ export default function CategoryLanding() {
             <span className="font-semibold">Back to Categories</span>
           </button>
 
-          {/* Pass the selected category to NewsFeeds */}
-          <NewsFeeds initialCategory={selectedCategory as 'crypto' | 'stocks' | 'sports'} />
+          {/* Pass the selected category and userId to NewsFeeds */}
+          <NewsFeeds initialCategory={selectedCategory as 'crypto' | 'stocks' | 'sports'} userId={userId} />
         </div>
       </div>
     );
@@ -151,19 +217,51 @@ export default function CategoryLanding() {
         </div>
 
         {/* Tier Info */}
-        <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700 rounded-2xl p-8 text-center">
-          <p className="text-sm font-semibold text-slate-300 mb-2">
-            ⏱️ Free Tier Active
-          </p>
-          <p className="text-slate-400 text-sm mb-4">
-            News delivered with 15-minute delay
-          </p>
-          <button className="px-6 py-3 rounded-full bg-gradient-to-r from-orange-500 to-purple-500 hover:from-orange-400 hover:to-purple-400 transition-all duration-300 hover:scale-105 shadow-lg">
-            <span className="text-sm font-bold text-white">
-              Upgrade to Premium - Only $4.99/mo for Real-Time News
-            </span>
-          </button>
-        </div>
+        {!checkingTier && (
+          <div>
+            {isPremium ? (
+              // Premium Member Badge
+              <div className="rounded-2xl p-6 border-2 border-yellow-500/30 bg-gradient-to-br from-yellow-500/10 to-orange-500/10">
+                <div className="text-center space-y-2">
+                  <div className="inline-block px-6 py-3 rounded-xl border-2 border-yellow-500/50 bg-yellow-500/20">
+                    <div className="flex items-center gap-2 text-lg font-bold text-yellow-400">
+                      <span>👑</span>
+                      <span>Premium Member</span>
+                    </div>
+                    <div className="text-sm text-slate-300 mt-1">
+                      Real-time news • Zero delay
+                    </div>
+                  </div>
+                  <div className="text-sm font-semibold text-green-400 flex items-center justify-center gap-2">
+                    <span>✨</span>
+                    <span>Instant updates enabled</span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              // Free Tier with Upgrade Button
+              <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700 rounded-2xl p-8 text-center">
+                <p className="text-sm font-semibold text-slate-300 mb-2">
+                  ⏱️ Free Tier Active
+                </p>
+                <p className="text-slate-400 text-sm mb-4">
+                  News delivered with 15-minute delay
+                </p>
+                <button
+                  onClick={handleUpgrade}
+                  className="px-6 py-3 rounded-xl font-bold text-white text-sm bg-gradient-to-r from-orange-500 to-purple-500 hover:from-orange-400 hover:to-purple-400 hover:shadow-2xl hover:shadow-purple-500/50 active:scale-95 transition-all duration-300 transform hover:scale-110 hover:-translate-y-1 border-2 border-white/20 cursor-pointer"
+                >
+                  ✨ Upgrade to Premium ($4.99/mo) for Real-Time ⚡
+                </button>
+                {purchaseError && (
+                  <p className="text-center text-red-400 text-sm mt-2">
+                    {purchaseError}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

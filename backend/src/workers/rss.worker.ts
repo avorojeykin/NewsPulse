@@ -106,7 +106,3 @@ async function pollFeeds() {
   }
 }
 
-// Run if executed directly
-if (require.main === module) {
-  startRSSWorker().catch(console.error);
-}

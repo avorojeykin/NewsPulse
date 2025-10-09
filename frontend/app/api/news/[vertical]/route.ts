@@ -9,11 +9,15 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const limit = searchParams.get('limit') || '20';
     const ticker = searchParams.get('ticker');
+    const userId = searchParams.get('userId');
 
     // Build query params
     const queryParams = new URLSearchParams({ limit });
     if (ticker) {
       queryParams.append('ticker', ticker);
+    }
+    if (userId) {
+      queryParams.append('userId', userId);
     }
 
     // Fetch from backend API
