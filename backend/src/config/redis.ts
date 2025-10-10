@@ -8,6 +8,11 @@ dotenv.config();
 // Stores last 2000 news hashes (~ 80% hit rate)
 const hashCache = new LRUCache<string, boolean>(2000);
 
+// Cache performance metrics
+let cacheHits = 0;
+let cacheMisses = 0;
+let redisQueries = 0;
+
 // Support both REDIS_URL (Upstash/Railway) and separate env vars (local)
 let redisUrl: string;
 let REDIS_HOST: string;
@@ -74,10 +79,13 @@ export async function connectRedis() {
 export async function checkDuplicate(hash: string): Promise<boolean> {
   // Check in-memory cache first (fast path)
   if (hashCache.has(hash)) {
+    cacheHits++;
     return hashCache.get(hash) || false;
   }
 
   // Cache miss - check Redis (slow path)
+  cacheMisses++;
+  redisQueries++;
   const exists = await redisClient.exists(`news:${hash}`);
   const isDuplicate = exists === 1;
 
@@ -89,6 +97,7 @@ export async function checkDuplicate(hash: string): Promise<boolean> {
 
 export async function markAsProcessed(hash: string): Promise<void> {
   // Mark in Redis with 24-hour TTL
+  redisQueries++;
   await redisClient.setEx(`news:${hash}`, 86400, '1');
 
   // Also cache in memory
@@ -97,8 +106,24 @@ export async function markAsProcessed(hash: string): Promise<void> {
 
 // Helper to get cache stats for monitoring
 export function getCacheStats() {
+  const totalRequests = cacheHits + cacheMisses;
+  const hitRate = totalRequests > 0 ? ((cacheHits / totalRequests) * 100).toFixed(1) : '0.0';
+
   return {
     size: hashCache.size(),
     maxSize: 2000,
+    cacheHits,
+    cacheMisses,
+    totalRequests,
+    hitRate: `${hitRate}%`,
+    redisQueries,
+    redisSaved: cacheHits, // Redis queries saved by cache
   };
+}
+
+// Reset cache metrics (useful for testing)
+export function resetCacheMetrics() {
+  cacheHits = 0;
+  cacheMisses = 0;
+  redisQueries = 0;
 }

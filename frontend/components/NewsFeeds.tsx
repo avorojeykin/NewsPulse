@@ -84,7 +84,7 @@ export default function NewsFeeds({ initialCategory = 'crypto', userId }: NewsFe
       const data = await response.json();
       setNews(data.news);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load news');
+      setError('The system is currently undergoing maintenance. We will be back shortly.');
       console.error('Error fetching news:', err);
     } finally {
       setLoading(false);
@@ -217,11 +217,14 @@ export default function NewsFeeds({ initialCategory = 'crypto', userId }: NewsFe
         )}
 
         {error && (
-          <div className="bg-red-500/10 border-2 border-red-500/30 rounded-2xl p-8 text-center backdrop-blur-sm">
-            <div className="text-5xl mb-4">⚠️</div>
-            <p className="text-red-400 font-bold text-lg mb-2">{error}</p>
-            <p className="text-sm text-slate-400">
-              Make sure the backend server is running at http://localhost:3001
+          <div className="bg-orange-500/10 border-2 border-orange-500/30 rounded-2xl p-8 text-center backdrop-blur-sm">
+            <div className="text-5xl mb-4">🔧</div>
+            <p className="text-orange-400 font-bold text-lg mb-2">System Maintenance</p>
+            <p className="text-sm text-slate-300">
+              The system is currently undergoing maintenance. We will be back shortly.
+            </p>
+            <p className="text-xs text-slate-400 mt-2">
+              Thank you for your patience! 🙏
             </p>
           </div>
         )}

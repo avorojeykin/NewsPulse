@@ -85,6 +85,8 @@ async function pollFeeds() {
     const cacheStats = getCacheStats();
     console.log(`📊 Total items fetched: ${allNews.length}`);
     console.log(`💾 Cache stats: ${cacheStats.size}/${cacheStats.maxSize} entries`);
+    console.log(`🎯 Cache performance: ${cacheStats.hitRate} hit rate (${cacheStats.cacheHits} hits, ${cacheStats.cacheMisses} misses)`);
+    console.log(`📉 Redis queries: ${cacheStats.redisQueries} (saved ${cacheStats.redisSaved} queries via cache)`);
 
     // Add to processing queue with 15-minute delay for free tier
     // TEMPORARY: Delay removed for testing - re-enable for production

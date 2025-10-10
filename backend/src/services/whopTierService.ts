@@ -50,7 +50,8 @@ export async function getDeliveryDelay(userId: string): Promise<number> {
   if (tier === 'premium') {
     return 0; // Instant delivery
   } else {
-    return 15 * 60 * 1000; // 15 minutes in milliseconds
+    //return 15 * 60 * 1000; // 15 minutes in milliseconds
+    return 0; // free for now for Daniels Community
   }
 }
 
