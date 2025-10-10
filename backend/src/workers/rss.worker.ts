@@ -3,7 +3,7 @@ import { Queue } from 'bullmq';
 import { RSS_FEEDS, Vertical } from '../config/feeds.js';
 import { NewsItem } from '../types/news.js';
 import { generateHash } from '../services/newsProcessor.js';
-import { connectRedis, redisConnection } from '../config/redis.js';
+import { connectRedis, redisConnection, getCacheStats } from '../config/redis.js';
 import * as dotenv from 'dotenv';
 
 dotenv.config();
@@ -59,15 +59,15 @@ export async function startRSSWorker() {
   // Connect to Redis first
   await connectRedis();
 
-  console.log('📡 RSS Worker running - polling every 60 seconds');
+  console.log('📡 RSS Worker running - polling every 2 minutes');
 
   // Immediate first run
   await pollFeeds();
 
-  // Then poll every 60 seconds
+  // Then poll every 2 minutes (120 seconds)
   setInterval(async () => {
     await pollFeeds();
-  }, 60000);
+  }, 120000);
 }
 
 async function pollFeeds() {
@@ -81,7 +81,9 @@ async function pollFeeds() {
     ]);
 
     const allNews = [...cryptoNews, ...stocksNews, ...sportsNews];
+    const cacheStats = getCacheStats();
     console.log(`📊 Total items fetched: ${allNews.length}`);
+    console.log(`💾 Cache stats: ${cacheStats.size}/${cacheStats.maxSize} entries`);
 
     // Add to processing queue with 15-minute delay for free tier
     // TEMPORARY: Delay removed for testing - re-enable for production
