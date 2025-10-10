@@ -77,12 +77,6 @@ export async function getRecentNews(
 
   whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
   params.push(limit);
-  paramIndex = params.length;
-
-  // Fetch more items than needed to ensure good diversity
-  const fetchLimit = limit * 3;
-  const fetchParams = [...params];
-  fetchParams[fetchParams.length - 1] = fetchLimit;
 
   const rows = await query<ProcessedNewsItem>(
     `SELECT id, source, category as vertical, ticker, title, content, url, hash, published_at, fetched_at, delivered_at, metadata
@@ -90,22 +84,9 @@ export async function getRecentNews(
      ${whereClause}
      ORDER BY published_at DESC
      LIMIT $${params.length}`,
-    fetchParams
+    params
   );
 
-  // Shuffle the results to show diverse sources
-  const shuffled = shuffleArray(rows);
-
-  // Return only the requested limit
-  return shuffled.slice(0, limit);
-}
-
-// Fisher-Yates shuffle algorithm for randomizing array order
-function shuffleArray<T>(array: T[]): T[] {
-  const shuffled = [...array];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  return shuffled;
+  // Return results in chronological order (newest first)
+  return rows;
 }
