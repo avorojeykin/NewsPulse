@@ -59,15 +59,16 @@ export async function startRSSWorker() {
   // Connect to Redis first
   await connectRedis();
 
-  console.log('📡 RSS Worker running - polling every 2 minutes');
+  // EMERGENCY: Increased to 5 minutes to reduce Redis usage
+  console.log('📡 RSS Worker running - polling every 5 minutes');
 
   // Immediate first run
   await pollFeeds();
 
-  // Then poll every 2 minutes (120 seconds)
+  // Then poll every 5 minutes (300 seconds)
   setInterval(async () => {
     await pollFeeds();
-  }, 120000);
+  }, 300000);
 }
 
 async function pollFeeds() {
