@@ -78,6 +78,9 @@ app.get('/api/news/:vertical', async (req, res) => {
     if (userId) {
       const delay = await getDeliveryDelay(userId as string);
       delayMinutes = delay / (60 * 1000); // Convert ms to minutes
+      console.log(`📊 [${vertical}] User ${userId}: ${delayMinutes === 0 ? 'PREMIUM' : 'FREE'} tier → ${delayMinutes}min delay`);
+    } else {
+      console.log(`⚠️ [${vertical}] No userId provided, defaulting to 15min delay`);
     }
 
     const news = await getRecentNews(

@@ -2,15 +2,10 @@ import { Worker } from 'bullmq';
 import { NewsItem } from '../types/news.js';
 import { processNewsItem } from '../services/newsProcessor.js';
 import { pool } from '../config/database.js';
-import { connectRedis } from '../config/redis.js';
+import { connectRedis, redisConnection } from '../config/redis.js';
 import * as dotenv from 'dotenv';
 
 dotenv.config();
-
-const redisConnection = {
-  host: process.env.REDIS_URL?.includes('localhost') ? 'localhost' : process.env.REDIS_URL?.split('@')[1]?.split(':')[0],
-  port: parseInt(process.env.REDIS_URL?.split(':').pop() || '6379'),
-};
 
 export async function startNewsProcessor() {
   console.log('🚀 Starting News Processor Worker...');

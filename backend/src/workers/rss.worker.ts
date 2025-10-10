@@ -3,17 +3,14 @@ import { Queue } from 'bullmq';
 import { RSS_FEEDS, Vertical } from '../config/feeds.js';
 import { NewsItem } from '../types/news.js';
 import { generateHash } from '../services/newsProcessor.js';
-import { connectRedis } from '../config/redis.js';
+import { connectRedis, redisConnection } from '../config/redis.js';
 import * as dotenv from 'dotenv';
 
 dotenv.config();
 
 const parser = new Parser();
 const newsQueue = new Queue('news-processing', {
-  connection: {
-    host: process.env.REDIS_URL?.includes('localhost') ? 'localhost' : process.env.REDIS_URL?.split('@')[1]?.split(':')[0],
-    port: parseInt(process.env.REDIS_URL?.split(':').pop() || '6379'),
-  },
+  connection: redisConnection,
 });
 
 interface FeedConfig {

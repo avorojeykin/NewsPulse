@@ -30,7 +30,19 @@
       "Bash(ping:*)",
       "Bash(nslookup:*)",
       "Bash(set NODE_OPTIONS=--dns-result-order=ipv6first)",
-      "Bash(git remote remove:*)"
+      "Bash(git remote remove:*)",
+      "Bash(git remote add:*)",
+      "Bash(git branch:*)",
+      "Bash(git push:*)",
+      "Bash(railway --version)",
+      "Bash(railway login:*)",
+      "Bash(railway init:*)",
+      "Bash(railway variables set:*)",
+      "Bash(railway variables:*)",
+      "Bash(railway service:*)",
+      "Bash(npm run build:*)",
+      "Bash(vercel:*)",
+      "Bash(pnpm install:*)"
     ],
     "deny": [],
     "ask": []
