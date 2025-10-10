@@ -6,7 +6,6 @@ import { getRecentNews } from './services/newsProcessor.js';
 import { fetchTickerNews } from './workers/ticker.worker.js';
 import { getUserTier, getDeliveryDelay } from './services/whopTierService.js';
 import { startRSSWorker } from './workers/rss.worker.js';
-import { startNewsProcessor } from './workers/news.processor.js';
 
 dotenv.config();
 
@@ -139,11 +138,8 @@ async function startServer() {
 
     // Start workers
     console.log('\n🔧 Starting background workers...');
-    await Promise.all([
-      startRSSWorker(),
-      startNewsProcessor(),
-    ]);
-    console.log('✅ All workers started successfully\n');
+    await startRSSWorker();
+    console.log('✅ RSS Worker started successfully\n');
   } catch (error) {
     console.error('❌ Failed to start server:', error);
     process.exit(1);

@@ -1,17 +1,13 @@
 import Parser from 'rss-parser';
-import { Queue } from 'bullmq';
 import { RSS_FEEDS, Vertical } from '../config/feeds.js';
 import { NewsItem } from '../types/news.js';
-import { generateHash } from '../services/newsProcessor.js';
-import { connectRedis, redisConnection, getCacheStats } from '../config/redis.js';
+import { generateHash, processNewsItem } from '../services/newsProcessor.js';
+import { connectRedis, getCacheStats } from '../config/redis.js';
 import * as dotenv from 'dotenv';
 
 dotenv.config();
 
 const parser = new Parser();
-const newsQueue = new Queue('news-processing', {
-  connection: redisConnection,
-});
 
 interface FeedConfig {
   name: string;
@@ -82,27 +78,26 @@ async function pollFeeds() {
     ]);
 
     const allNews = [...cryptoNews, ...stocksNews, ...sportsNews];
-    const cacheStats = getCacheStats();
     console.log(`📊 Total items fetched: ${allNews.length}`);
-    console.log(`💾 Cache stats: ${cacheStats.size}/${cacheStats.maxSize} entries`);
-    console.log(`🎯 Cache performance: ${cacheStats.hitRate} hit rate (${cacheStats.cacheHits} hits, ${cacheStats.cacheMisses} misses)`);
-    console.log(`📉 Redis queries: ${cacheStats.redisQueries} (saved ${cacheStats.redisSaved} queries via cache)`);
 
-    // Add to processing queue with 15-minute delay for free tier
-    // TEMPORARY: Delay removed for testing - re-enable for production
+    // Process news items directly (no queue needed)
+    let processed = 0;
+    let duplicates = 0;
+
     for (const item of allNews) {
-      await newsQueue.add(
-        'process-news',
-        item,
-        {
-          delay: 0, // TESTING: Was 15 * 60 * 1000 (15 minutes)
-          removeOnComplete: true,
-          removeOnFail: false,
-        }
-      );
+      const success = await processNewsItem(item);
+      if (success) {
+        processed++;
+      } else {
+        duplicates++;
+      }
     }
 
-    console.log(`✅ Queued ${allNews.length} items for processing (15-min delay)\n`);
+    const cacheStats = getCacheStats();
+    console.log(`✅ Processed: ${processed} new, ${duplicates} duplicates`);
+    console.log(`💾 Cache stats: ${cacheStats.size}/${cacheStats.maxSize} entries`);
+    console.log(`🎯 Cache performance: ${cacheStats.hitRate} hit rate (${cacheStats.cacheHits} hits, ${cacheStats.cacheMisses} misses)`);
+    console.log(`📉 Redis queries: ${cacheStats.redisQueries} (saved ${cacheStats.redisSaved} queries via cache)\n`);
   } catch (error) {
     console.error('❌ Error in poll cycle:', error);
   }
