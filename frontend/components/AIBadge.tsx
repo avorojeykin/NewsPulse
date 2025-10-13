@@ -1,6 +1,6 @@
 'use client';
 
-import { TrendingUp, TrendingDown, Minus, AlertTriangle, Flame, Zap, MessageSquare } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, AlertTriangle, Flame, Zap, MessageSquare, Sparkles } from 'lucide-react';
 
 interface AIBadgeProps {
   sentiment?: {
@@ -21,67 +21,74 @@ export default function AIBadge({ sentiment, priceImpact, userTier, onClick }: A
   // If no AI data yet (still processing)
   if (!sentiment || !priceImpact) return null;
 
-  // Sentiment badge configuration
+  // Sentiment badge configuration with vibrant colors
   const sentimentConfig = {
     bullish: {
       icon: TrendingUp,
       text: 'Bullish',
-      bg: 'bg-green-500/10',
-      border: 'border-green-500/30',
-      textColor: 'text-green-400',
-      iconColor: 'text-green-500',
+      bg: 'bg-gradient-to-r from-green-500/20 to-emerald-500/20',
+      border: 'border-green-400',
+      textColor: 'text-green-300',
+      iconColor: 'text-green-400',
+      glow: 'shadow-lg shadow-green-500/20',
     },
     bearish: {
       icon: TrendingDown,
       text: 'Bearish',
-      bg: 'bg-red-500/10',
-      border: 'border-red-500/30',
-      textColor: 'text-red-400',
-      iconColor: 'text-red-500',
+      bg: 'bg-gradient-to-r from-red-500/20 to-rose-500/20',
+      border: 'border-red-400',
+      textColor: 'text-red-300',
+      iconColor: 'text-red-400',
+      glow: 'shadow-lg shadow-red-500/20',
     },
     neutral: {
       icon: Minus,
       text: 'Neutral',
-      bg: 'bg-yellow-500/10',
-      border: 'border-yellow-500/30',
-      textColor: 'text-yellow-400',
-      iconColor: 'text-yellow-500',
+      bg: 'bg-gradient-to-r from-yellow-500/20 to-amber-500/20',
+      border: 'border-yellow-400',
+      textColor: 'text-yellow-300',
+      iconColor: 'text-yellow-400',
+      glow: 'shadow-lg shadow-yellow-500/20',
     },
   };
 
-  // Impact badge configuration
+  // Impact badge configuration with vibrant colors
   const impactConfig = {
     critical: {
       icon: AlertTriangle,
       text: 'Critical',
-      bg: 'bg-red-500/10',
-      border: 'border-red-500/30',
-      textColor: 'text-red-400',
-      iconColor: 'text-red-500',
+      bg: 'bg-gradient-to-r from-red-600/20 to-orange-600/20',
+      border: 'border-red-500',
+      textColor: 'text-red-300',
+      iconColor: 'text-red-400',
+      glow: 'shadow-lg shadow-red-600/30',
     },
     high: {
       icon: Flame,
       text: 'High Impact',
-      bg: 'bg-orange-500/10',
-      border: 'border-orange-500/30',
-      textColor: 'text-orange-400',
-      iconColor: 'text-orange-500',
+      bg: 'bg-gradient-to-r from-orange-500/20 to-amber-500/20',
+      border: 'border-orange-400',
+      textColor: 'text-orange-300',
+      iconColor: 'text-orange-400',
+      glow: 'shadow-lg shadow-orange-500/30',
     },
     medium: {
       icon: Zap,
       text: 'Medium',
-      bg: 'bg-blue-500/10',
-      border: 'border-blue-500/30',
-      textColor: 'text-blue-400',
-      iconColor: 'text-blue-500',
+      bg: 'bg-gradient-to-r from-blue-500/20 to-cyan-500/20',
+      border: 'border-blue-400',
+      textColor: 'text-blue-300',
+      iconColor: 'text-blue-400',
+      glow: 'shadow-lg shadow-blue-500/20',
     },
     low: {
       icon: MessageSquare,
       text: 'Low',
-      bg: 'bg-slate-500/10',
-      border: 'border-slate-500/30',
-      textColor: 'text-slate-400',
-      iconColor: 'text-slate-500',
+      bg: 'bg-gradient-to-r from-slate-500/20 to-gray-500/20',
+      border: 'border-slate-400',
+      textColor: 'text-slate-300',
+      iconColor: 'text-slate-400',
+      glow: 'shadow-lg shadow-slate-500/10',
     },
   };
 
@@ -99,28 +106,41 @@ export default function AIBadge({ sentiment, priceImpact, userTier, onClick }: A
 
   return (
     <div className="flex items-center gap-2 flex-wrap">
+      {/* AI Powered Badge - Prominent branding */}
+      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-purple-500/20 via-pink-500/20 to-purple-500/20 border-2 border-purple-400/50 shadow-lg shadow-purple-500/30 animate-pulse">
+        <Sparkles className="w-3.5 h-3.5 text-purple-300" />
+        <span className="text-xs font-bold bg-gradient-to-r from-purple-300 to-pink-300 bg-clip-text text-transparent">
+          AI POWERED
+        </span>
+      </div>
+
       {/* Sentiment Badge */}
       <div
         className={`
           flex items-center gap-2 px-3 py-1.5 rounded-lg border-2 transition-all
-          ${sentimentStyle.bg} ${sentimentStyle.border}
-          ${isClickable ? 'cursor-pointer hover:scale-105 hover:shadow-lg' : ''}
+          ${sentimentStyle.bg} ${sentimentStyle.border} ${sentimentStyle.glow}
+          ${isClickable ? 'cursor-pointer hover:scale-105 hover:brightness-110' : ''}
         `}
         onClick={isClickable ? onClick : undefined}
         title={isClickable ? 'Click for full AI analysis' : 'Pro tier required for full analysis'}
       >
         <SentimentIcon className={`w-4 h-4 ${sentimentStyle.iconColor}`} />
-        <span className={`text-xs font-bold ${sentimentStyle.textColor}`}>
-          {sentimentStyle.text} {confidencePercentage}%
-        </span>
+        <div className="flex flex-col">
+          <span className={`text-xs font-bold leading-tight ${sentimentStyle.textColor}`}>
+            {sentimentStyle.text}
+          </span>
+          <span className={`text-[10px] font-semibold leading-tight ${sentimentStyle.textColor} opacity-80`}>
+            {confidencePercentage}% confidence
+          </span>
+        </div>
       </div>
 
       {/* Impact Badge */}
       <div
         className={`
           flex items-center gap-2 px-3 py-1.5 rounded-lg border-2 transition-all
-          ${impactStyle.bg} ${impactStyle.border}
-          ${isClickable ? 'cursor-pointer hover:scale-105 hover:shadow-lg' : ''}
+          ${impactStyle.bg} ${impactStyle.border} ${impactStyle.glow}
+          ${isClickable ? 'cursor-pointer hover:scale-105 hover:brightness-110' : ''}
         `}
         onClick={isClickable ? onClick : undefined}
         title={isClickable ? 'Click for full AI analysis' : 'Pro tier required for full analysis'}
@@ -131,17 +151,10 @@ export default function AIBadge({ sentiment, priceImpact, userTier, onClick }: A
         </span>
       </div>
 
-      {/* AI Badge for Pro users */}
-      {userTier === 'pro' && (
-        <div className="px-2 py-1 rounded bg-purple-500/20 border border-purple-500/30">
-          <span className="text-purple-400 text-[10px] font-bold uppercase tracking-wider">AI</span>
-        </div>
-      )}
-
       {/* Premium tier CTA - subtle hint to upgrade */}
       {userTier === 'premium' && (
-        <div className="text-[10px] text-slate-500 font-medium">
-          Upgrade to Pro for full AI analysis
+        <div className="text-[10px] text-slate-500 font-medium italic">
+          Upgrade to Pro for detailed analysis
         </div>
       )}
     </div>
