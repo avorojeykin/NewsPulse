@@ -94,13 +94,47 @@ export class AIService {
         return null;
       }
 
+      console.log(`🔍 AI raw response (first 200 chars): ${content.substring(0, 200)}...`);
+
       // Parse JSON response
       let analysisResult: AIAnalysisResult;
       try {
-        // Extract JSON from markdown code blocks if present
-        const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)\s*```/) || [null, content];
-        const jsonStr = jsonMatch[1].trim();
-        analysisResult = JSON.parse(jsonStr);
+        let jsonStr = content.trim();
+
+        // Try 1: Extract from markdown code blocks if present
+        const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+        if (jsonMatch) {
+          jsonStr = jsonMatch[1].trim();
+        }
+
+        // Try 2: Parse as-is
+        try {
+          analysisResult = JSON.parse(jsonStr);
+        } catch (firstError) {
+          // Try 3: Remove trailing extra braces (common AI error)
+          // Find the position of the last valid closing brace
+          let bracketCount = 0;
+          let lastValidIndex = -1;
+
+          for (let i = 0; i < jsonStr.length; i++) {
+            if (jsonStr[i] === '{') bracketCount++;
+            if (jsonStr[i] === '}') {
+              bracketCount--;
+              if (bracketCount === 0) {
+                lastValidIndex = i;
+                break;
+              }
+            }
+          }
+
+          if (lastValidIndex > 0) {
+            const cleanedJson = jsonStr.substring(0, lastValidIndex + 1);
+            analysisResult = JSON.parse(cleanedJson);
+            console.log('⚠️  Fixed malformed JSON by removing trailing characters');
+          } else {
+            throw firstError;
+          }
+        }
       } catch (parseError) {
         console.error('❌ Failed to parse AI response as JSON:', content);
         return null;
@@ -111,6 +145,8 @@ export class AIService {
         console.error('❌ Invalid AI response structure:', analysisResult);
         return null;
       }
+
+      console.log(`✅ AI parsed successfully: ${analysisResult.sentiment.label} (${Math.round(analysisResult.sentiment.confidence * 100)}%) | ${analysisResult.price_impact.level}`);
 
       return analysisResult;
     } catch (error) {

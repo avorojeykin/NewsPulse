@@ -123,7 +123,9 @@ async function processAIBatch() {
       await new Promise((resolve) => setTimeout(resolve, 200));
     }
 
-    console.log(`✅ AI batch complete: ${successCount} success, ${failureCount} failures\n`);
+    const totalProcessed = successCount + failureCount;
+    const successRate = totalProcessed > 0 ? Math.round((successCount / totalProcessed) * 100) : 0;
+    console.log(`✅ AI batch complete: ${successCount}/${totalProcessed} success (${successRate}%), ${failureCount} failures\n`);
   } catch (error) {
     console.error('❌ Error in AI processing cycle:', error);
   }
