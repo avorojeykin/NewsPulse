@@ -1,18 +1,21 @@
 /**
- * AI Service - OpenRouter Integration
- * Handles communication with OpenRouter API for news analysis
+ * AI Service - Groq Integration
+ * Handles communication with Groq API for news analysis
+ * Free tier limits: 14.4K RPD (requests/day), 30 RPM (requests/minute)
  */
 
 import { generateAnalysisPrompt, validateAnalysisResponse, PromptConfig } from './prompts.js';
 
-// OpenRouter Configuration
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
-const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
-const MODEL = 'moonshotai/kimi-k2:free'; // Free model - $0.00 per request
+// Groq Configuration
+const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
+const GROQ_BASE_URL = 'https://api.groq.com/openai/v1';
+const MODEL = 'llama-3.1-8b-instant'; // Free tier: 14.4K RPD, 30 RPM, 6K TPM
 
-// Site Configuration for OpenRouter rankings
-const SITE_URL = process.env.SITE_URL || 'https://newspulse.app';
-const SITE_NAME = 'NewsPulse';
+// Daily quota tracking (reset at midnight UTC)
+let dailyRequestCount = 0;
+let lastResetDate = new Date().toISOString().split('T')[0];
+const DAILY_LIMIT = 14000; // Leave 400 as buffer (out of 14,400)
+const RATE_LIMIT_RPM = 30; // Requests per minute
 
 export interface AIAnalysisResult {
   sentiment: {
@@ -38,13 +41,48 @@ export class AIService {
   private model: string;
 
   constructor() {
-    this.apiKey = OPENROUTER_API_KEY;
-    this.baseUrl = OPENROUTER_BASE_URL;
+    this.apiKey = GROQ_API_KEY;
+    this.baseUrl = GROQ_BASE_URL;
     this.model = MODEL;
 
     if (!this.apiKey) {
-      console.warn('⚠️  OPENROUTER_API_KEY not set - AI features will be disabled');
+      console.warn('⚠️  GROQ_API_KEY not set - AI features will be disabled');
     }
+  }
+
+  /**
+   * Reset daily quota counter if it's a new day
+   */
+  private checkAndResetQuota(): void {
+    const today = new Date().toISOString().split('T')[0];
+    if (today !== lastResetDate) {
+      console.log(`📊 Daily quota reset: ${dailyRequestCount} requests used yesterday`);
+      dailyRequestCount = 0;
+      lastResetDate = today;
+    }
+  }
+
+  /**
+   * Check if we're within quota limits
+   */
+  private isWithinQuota(): boolean {
+    this.checkAndResetQuota();
+    return dailyRequestCount < DAILY_LIMIT;
+  }
+
+  /**
+   * Get remaining quota for today
+   */
+  public getRemainingQuota(): { used: number; limit: number; remaining: number; percentage: number } {
+    this.checkAndResetQuota();
+    const remaining = DAILY_LIMIT - dailyRequestCount;
+    const percentage = Math.round((dailyRequestCount / DAILY_LIMIT) * 100);
+    return {
+      used: dailyRequestCount,
+      limit: DAILY_LIMIT,
+      remaining,
+      percentage,
+    };
   }
 
   /**
@@ -52,7 +90,14 @@ export class AIService {
    */
   async analyzeNews(config: PromptConfig): Promise<AIAnalysisResult | null> {
     if (!this.apiKey) {
-      console.error('❌ OpenRouter API key not configured');
+      console.error('❌ Groq API key not configured');
+      return null;
+    }
+
+    // Check quota before making request
+    if (!this.isWithinQuota()) {
+      const quota = this.getRemainingQuota();
+      console.warn(`⚠️  Daily quota exceeded: ${quota.used}/${quota.limit} requests used`);
       return null;
     }
 
@@ -64,8 +109,6 @@ export class AIService {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${this.apiKey}`,
-          'HTTP-Referer': SITE_URL,
-          'X-Title': SITE_NAME,
         },
         body: JSON.stringify({
           model: this.model,
@@ -76,13 +119,16 @@ export class AIService {
             },
           ],
           temperature: 0.3, // Lower temperature for more consistent analysis
-          max_tokens: 1000,
+          max_tokens: 800, // Reduced from 1000 to save token quota
         }),
       });
 
+      // Increment quota counter
+      dailyRequestCount++;
+
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`❌ OpenRouter API error (${response.status}):`, errorText);
+        console.error(`❌ Groq API error (${response.status}):`, errorText);
         return null;
       }
 
@@ -90,7 +136,7 @@ export class AIService {
       const content = data.choices?.[0]?.message?.content;
 
       if (!content) {
-        console.error('❌ No content in OpenRouter response');
+        console.error('❌ No content in Groq response');
         return null;
       }
 
@@ -146,11 +192,14 @@ export class AIService {
         return null;
       }
 
-      console.log(`✅ AI parsed successfully: ${analysisResult.sentiment.label} (${Math.round(analysisResult.sentiment.confidence * 100)}%) | ${analysisResult.price_impact.level}`);
+      const quota = this.getRemainingQuota();
+      console.log(
+        `✅ AI parsed successfully: ${analysisResult.sentiment.label} (${Math.round(analysisResult.sentiment.confidence * 100)}%) | ${analysisResult.price_impact.level} | Quota: ${quota.used}/${quota.limit} (${quota.percentage}%)`
+      );
 
       return analysisResult;
     } catch (error) {
-      console.error('❌ Error calling OpenRouter API:', error);
+      console.error('❌ Error calling Groq API:', error);
       return null;
     }
   }
@@ -159,17 +208,23 @@ export class AIService {
    * Check if AI service is available
    */
   isAvailable(): boolean {
-    return !!this.apiKey;
+    return !!this.apiKey && this.isWithinQuota();
   }
 
   /**
    * Get service status
    */
-  getStatus(): { available: boolean; model: string; baseUrl: string } {
+  getStatus(): {
+    available: boolean;
+    model: string;
+    baseUrl: string;
+    quota: { used: number; limit: number; remaining: number; percentage: number };
+  } {
     return {
       available: this.isAvailable(),
       model: this.model,
       baseUrl: this.baseUrl,
+      quota: this.getRemainingQuota(),
     };
   }
 }
