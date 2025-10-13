@@ -32,9 +32,12 @@ export async function isPremiumUser(userId: string): Promise<boolean> {
 }
 
 /**
- * Get user's tier (free or premium)
+ * Get user's tier (free, premium, or pro)
+ * TODO: Add Pro tier Access Pass ID when available
  */
-export async function getUserTier(userId: string): Promise<'free' | 'premium'> {
+export async function getUserTier(userId: string): Promise<'free' | 'premium' | 'pro'> {
+  // TODO: Check for Pro tier Access Pass when available
+  // For now, Pro tier is not implemented
   const hasPremium = await isPremiumUser(userId);
   return hasPremium ? 'premium' : 'free';
 }

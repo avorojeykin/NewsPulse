@@ -137,7 +137,15 @@ app.get('/api/news/:id/ai', async (req, res) => {
     }
 
     // Fetch AI analysis from database
-    const rows = await query(
+    interface AINewsItem {
+      ai_processed: boolean;
+      ai_sentiment: any;
+      ai_price_impact: any;
+      ai_summary: any;
+      ai_processed_at: Date | null;
+    }
+
+    const rows = await query<AINewsItem>(
       `SELECT ai_processed, ai_sentiment, ai_price_impact, ai_summary, ai_processed_at
        FROM news_items
        WHERE id = $1`,

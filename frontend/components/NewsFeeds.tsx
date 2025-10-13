@@ -5,6 +5,7 @@ import { ExternalLink, Clock, Sparkles } from 'lucide-react';
 import { useIframeSdk } from '@whop/react';
 import { categories, theme } from '@/lib/theme';
 import TickerSearch from './TickerSearch';
+import AIBadge from './AIBadge';
 
 interface NewsItem {
   id: number;
@@ -16,6 +17,23 @@ interface NewsItem {
   url: string;
   published_at: string;
   fetched_at: string;
+  ai_processed?: boolean;
+  ai_sentiment?: {
+    label: 'bullish' | 'bearish' | 'neutral';
+    confidence: number;
+    reasoning: string;
+  };
+  ai_price_impact?: {
+    level: 'critical' | 'high' | 'medium' | 'low';
+    direction: 'up' | 'down' | 'uncertain';
+    reasoning: string;
+  };
+  ai_summary?: {
+    tldr: string;
+    key_points: string[];
+    entities: string[];
+  };
+  ai_processed_at?: string;
 }
 
 type Vertical = 'crypto' | 'stocks' | 'sports';
@@ -34,6 +52,7 @@ export default function NewsFeeds({ initialCategory = 'crypto', userId }: NewsFe
   const [error, setError] = useState<string | null>(null);
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
   const [isPremium, setIsPremium] = useState<boolean>(false);
+  const [userTier, setUserTier] = useState<'free' | 'premium' | 'pro'>('free');
   const [checkingTier, setCheckingTier] = useState(true);
 
   // Check premium status when userId is available
@@ -56,7 +75,8 @@ export default function NewsFeeds({ initialCategory = 'crypto', userId }: NewsFe
         }
 
         const data = await response.json();
-        setIsPremium(data.isPremium);
+        setIsPremium(data.isPremium || data.tier === 'pro');
+        setUserTier(data.tier);
         console.log(`✅ User tier: ${data.tier.toUpperCase()} (${data.deliveryDelayMinutes}min delay)`);
       } catch (error) {
         console.error('Error checking tier:', error);
@@ -311,6 +331,21 @@ export default function NewsFeeds({ initialCategory = 'crypto', userId }: NewsFe
                     <h3 className="text-xl font-bold text-white mb-3 leading-tight group-hover:text-opacity-90 transition-all">
                       {item.title}
                     </h3>
+
+                    {/* AI Badges (Premium & Pro only) */}
+                    {item.ai_processed && (
+                      <div className="mb-3">
+                        <AIBadge
+                          sentiment={item.ai_sentiment}
+                          priceImpact={item.ai_price_impact}
+                          userTier={userTier}
+                          onClick={userTier === 'pro' ? () => {
+                            // TODO: Open AI Dashboard modal in Phase 4
+                            console.log('Open AI Dashboard for item:', item.id);
+                          } : undefined}
+                        />
+                      </div>
+                    )}
 
                     {/* Content preview */}
                     {item.content && (
