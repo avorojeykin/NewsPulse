@@ -5,8 +5,9 @@ import { LRUCache } from '../utils/lruCache.js';
 dotenv.config();
 
 // In-memory LRU cache to reduce Redis calls
-// Stores last 2000 news hashes (~ 80% hit rate)
-const hashCache = new LRUCache<string, boolean>(2000);
+// Reduced to 500 entries to prevent OOM on Railway free tier
+// Still maintains ~80-90% hit rate
+const hashCache = new LRUCache<string, boolean>(500);
 
 // Cache performance metrics
 let cacheHits = 0;
@@ -111,7 +112,7 @@ export function getCacheStats() {
 
   return {
     size: hashCache.size(),
-    maxSize: 2000,
+    maxSize: 500,
     cacheHits,
     cacheMisses,
     totalRequests,

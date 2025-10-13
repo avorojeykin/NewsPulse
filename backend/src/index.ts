@@ -6,6 +6,8 @@ import { getRecentNews } from './services/newsProcessor.js';
 import { fetchTickerNews } from './workers/ticker.worker.js';
 import { getUserTier, getDeliveryDelay } from './services/whopTierService.js';
 import { startRSSWorker } from './workers/rss.worker.js';
+import { startAIWorker } from './workers/ai.worker.js';
+import { query } from './config/database.js';
 
 dotenv.config();
 
@@ -120,6 +122,54 @@ app.get('/api/tier/:userId', async (req, res) => {
   }
 });
 
+// Get AI analysis for a news item (Pro tier only)
+app.get('/api/news/:id/ai', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userId } = req.query;
+
+    // Check user tier (Pro tier only)
+    if (userId) {
+      const tier = await getUserTier(userId as string);
+      if (tier !== 'pro') {
+        return res.status(403).json({ error: 'Pro tier required for AI features' });
+      }
+    }
+
+    // Fetch AI analysis from database
+    const rows = await query(
+      `SELECT ai_processed, ai_sentiment, ai_price_impact, ai_summary, ai_processed_at
+       FROM news_items
+       WHERE id = $1`,
+      [id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'News item not found' });
+    }
+
+    const newsItem = rows[0];
+
+    if (!newsItem.ai_processed) {
+      return res.status(202).json({
+        status: 'processing',
+        message: 'AI analysis in progress',
+      });
+    }
+
+    res.json({
+      status: 'complete',
+      sentiment: newsItem.ai_sentiment,
+      price_impact: newsItem.ai_price_impact,
+      summary: newsItem.ai_summary,
+      processed_at: newsItem.ai_processed_at,
+    });
+  } catch (error) {
+    console.error('Error fetching AI analysis:', error);
+    res.status(500).json({ error: 'Failed to fetch AI analysis' });
+  }
+});
+
 async function startServer() {
   try {
     // Test database connection
@@ -139,7 +189,10 @@ async function startServer() {
     // Start workers
     console.log('\n🔧 Starting background workers...');
     await startRSSWorker();
-    console.log('✅ RSS Worker started successfully\n');
+    console.log('✅ RSS Worker started successfully');
+
+    await startAIWorker();
+    console.log('✅ AI Worker started successfully\n');
   } catch (error) {
     console.error('❌ Failed to start server:', error);
     process.exit(1);

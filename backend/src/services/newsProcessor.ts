@@ -79,7 +79,8 @@ export async function getRecentNews(
   params.push(limit);
 
   const rows = await query<ProcessedNewsItem>(
-    `SELECT id, source, category as vertical, ticker, title, content, url, hash, published_at, fetched_at, delivered_at, metadata
+    `SELECT id, source, category as vertical, ticker, title, content, url, hash, published_at, fetched_at, delivered_at, metadata,
+            ai_processed, ai_sentiment, ai_price_impact, ai_summary, ai_processed_at
      FROM news_items
      ${whereClause}
      ORDER BY published_at DESC
