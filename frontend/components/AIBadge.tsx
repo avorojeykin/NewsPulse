@@ -4,7 +4,7 @@ import { TrendingUp, TrendingDown, Minus, AlertTriangle, Flame, Zap, MessageSqua
 
 interface AIBadgeProps {
   sentiment?: {
-    label: 'bullish' | 'bearish' | 'neutral';
+    label: 'bullish' | 'bearish' | 'neutral' | 'favorable' | 'unfavorable';
     confidence: number;
   };
   priceImpact?: {
@@ -49,6 +49,24 @@ export default function AIBadge({ sentiment, priceImpact, userTier, onClick }: A
       textColor: 'text-yellow-300',
       iconColor: 'text-yellow-400',
       glow: 'shadow-lg shadow-yellow-500/20',
+    },
+    favorable: {
+      icon: TrendingUp,
+      text: 'Favorable',
+      bg: 'bg-gradient-to-r from-green-500/20 to-emerald-500/20',
+      border: 'border-green-400',
+      textColor: 'text-green-300',
+      iconColor: 'text-green-400',
+      glow: 'shadow-lg shadow-green-500/20',
+    },
+    unfavorable: {
+      icon: TrendingDown,
+      text: 'Unfavorable',
+      bg: 'bg-gradient-to-r from-red-500/20 to-rose-500/20',
+      border: 'border-red-400',
+      textColor: 'text-red-300',
+      iconColor: 'text-red-400',
+      glow: 'shadow-lg shadow-red-500/20',
     },
   };
 

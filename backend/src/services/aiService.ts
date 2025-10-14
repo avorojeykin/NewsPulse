@@ -19,7 +19,7 @@ const RATE_LIMIT_RPM = 30; // Requests per minute
 
 export interface AIAnalysisResult {
   sentiment: {
-    label: 'bullish' | 'bearish' | 'neutral';
+    label: 'bullish' | 'bearish' | 'neutral' | 'favorable' | 'unfavorable';
     confidence: number;
     reasoning: string;
   };

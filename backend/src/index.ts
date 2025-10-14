@@ -6,7 +6,7 @@ import { getRecentNews } from './services/newsProcessor.js';
 import { fetchTickerNews } from './workers/ticker.worker.js';
 import { getUserTier, getDeliveryDelay } from './services/whopTierService.js';
 import { startRSSWorker } from './workers/rss.worker.js';
-import { startAIWorker } from './workers/ai.worker.js';
+import { startAIWorker, processArticleById } from './workers/ai.worker.js';
 import { query } from './config/database.js';
 
 dotenv.config();
@@ -175,6 +175,58 @@ app.get('/api/news/:id/ai', async (req, res) => {
   } catch (error) {
     console.error('Error fetching AI analysis:', error);
     res.status(500).json({ error: 'Failed to fetch AI analysis' });
+  }
+});
+
+// Request AI analysis for a news item (on-demand)
+app.post('/api/news/:id/analyze', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if article exists
+    interface NewsItem {
+      id: number;
+      title: string;
+      ai_processed: boolean;
+    }
+
+    const rows = await query<NewsItem>(
+      `SELECT id, title, ai_processed FROM news_items WHERE id = $1`,
+      [id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'News item not found' });
+    }
+
+    const article = rows[0];
+
+    // If already processed, return existing analysis
+    if (article.ai_processed) {
+      return res.json({
+        status: 'already_processed',
+        message: 'AI analysis already exists for this article',
+        articleId: id,
+      });
+    }
+
+    // Trigger on-demand AI analysis (async)
+    console.log(`📝 On-demand AI analysis requested for article ${id}: ${article.title.substring(0, 50)}...`);
+
+    // Process in background
+    processArticleById(parseInt(id as string)).catch((error) => {
+      console.error(`❌ Background processing failed for article ${id}:`, error);
+    });
+
+    // Return immediate response
+    res.json({
+      status: 'processing',
+      message: 'AI analysis started. Check back in a few seconds.',
+      articleId: id,
+    });
+  } catch (error) {
+    console.error('Error requesting AI analysis:', error);
+    res.status(500).json({ error: 'Failed to request AI analysis' });
   }
 });
 

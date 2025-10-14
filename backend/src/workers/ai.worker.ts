@@ -1,6 +1,6 @@
 /**
  * AI Worker - Background Processing for News Analysis
- * Processes news items immediately after RSS fetch for zero perceived latency
+ * Supports both scheduled processing (top 4/category) and on-demand analysis
  */
 
 import { query } from '../config/database.js';
@@ -16,39 +16,74 @@ interface UnprocessedNewsItem {
   title: string;
   content?: string;
   url: string;
+  ai_analysis_requested?: boolean;
 }
 
 /**
- * Fetch unprocessed news items from database with smart prioritization
- * Priority: 1) Recent articles (last 2 hours) 2) Articles with tickers 3) Top sources
+ * Fetch on-demand requested articles that haven't been processed yet
+ * Priority: User-requested articles get processed first
  */
-async function fetchUnprocessedNews(limit: number = 10): Promise<UnprocessedNewsItem[]> {
+async function fetchRequestedArticles(): Promise<UnprocessedNewsItem[]> {
   try {
     const rows = await query<UnprocessedNewsItem>(
-      `SELECT id, category, ticker, title, content, url, published_at,
-        CASE
-          -- Priority 1: Very recent articles (last 2 hours) = 100 points
-          WHEN published_at > NOW() - INTERVAL '2 hours' THEN 100
-          -- Priority 2: Recent articles (last 6 hours) = 50 points
-          WHEN published_at > NOW() - INTERVAL '6 hours' THEN 50
-          -- Priority 3: Older articles = 10 points
-          ELSE 10
-        END +
-        CASE
-          -- Bonus: Has ticker symbol (user searched) = +50 points
-          WHEN ticker IS NOT NULL THEN 50
-          ELSE 0
-        END as priority_score
+      `SELECT id, category, ticker, title, content, url, ai_analysis_requested
        FROM news_items
-       WHERE ai_processed = false
-         AND published_at > NOW() - INTERVAL '24 hours'  -- Only process last 24 hours
-       ORDER BY priority_score DESC, published_at DESC
-       LIMIT $1`,
-      [limit]
+       WHERE ai_analysis_requested = true
+         AND ai_processed = false
+         AND published_at > NOW() - INTERVAL '24 hours'
+       ORDER BY created_at DESC
+       LIMIT 10`,
+      []
     );
+
+    if (rows.length > 0) {
+      console.log(`📊 Found ${rows.length} user-requested articles for AI analysis`);
+    }
+
     return rows;
   } catch (error) {
-    console.error('❌ Error fetching unprocessed news:', error);
+    console.error('❌ Error fetching requested articles:', error);
+    return [];
+  }
+}
+
+/**
+ * Fetch top 4 unprocessed news items per category (crypto, stocks, sports)
+ * Conservative approach: 4 × 3 = 12 articles per cycle (every 5 minutes)
+ * Daily max: 12 × 12 cycles/hour × 24 hours = 3,456 articles
+ * Priority: Most recent articles in each category
+ */
+async function fetchUnprocessedNewsByCategory(): Promise<UnprocessedNewsItem[]> {
+  try {
+    const categories = ['crypto', 'stocks', 'sports'];
+    const allItems: UnprocessedNewsItem[] = [];
+
+    // Fetch top 4 articles per category in parallel
+    const categoryPromises = categories.map(async (cat) => {
+      const rows = await query<UnprocessedNewsItem>(
+        `SELECT id, category, ticker, title, content, url, published_at
+         FROM news_items
+         WHERE ai_processed = false
+           AND (ai_analysis_requested = false OR ai_analysis_requested IS NULL)
+           AND category = $1
+           AND published_at > NOW() - INTERVAL '24 hours'
+         ORDER BY published_at DESC
+         LIMIT 4`,
+        [cat]
+      );
+      return rows;
+    });
+
+    const results = await Promise.all(categoryPromises);
+    results.forEach((rows) => allItems.push(...rows));
+
+    console.log(
+      `📊 Fetched ${allItems.length} background articles: ${results[0].length} crypto, ${results[1].length} stocks, ${results[2].length} sports`
+    );
+
+    return allItems;
+  } catch (error) {
+    console.error('❌ Error fetching unprocessed news by category:', error);
     return [];
   }
 }
@@ -101,7 +136,59 @@ async function processNewsWithAI(item: UnprocessedNewsItem): Promise<boolean> {
 }
 
 /**
- * Main processing cycle
+ * Process a single article by ID (for on-demand requests)
+ * @param articleId - ID of the article to process
+ * @returns true if processing succeeded, false otherwise
+ */
+export async function processArticleById(articleId: number): Promise<boolean> {
+  try {
+    // Check if AI service is available
+    if (!aiService.isAvailable()) {
+      console.log('⏸️  AI service not available');
+      return false;
+    }
+
+    // Fetch the specific article
+    const rows = await query<UnprocessedNewsItem>(
+      `SELECT id, category, ticker, title, content, url
+       FROM news_items
+       WHERE id = $1 AND ai_processed = false`,
+      [articleId]
+    );
+
+    if (rows.length === 0) {
+      console.log(`⚠️  Article ${articleId} not found or already processed`);
+      return false;
+    }
+
+    const item = rows[0];
+    console.log(`🎯 Processing on-demand request for article ${articleId}: ${item.title.substring(0, 50)}...`);
+
+    // Mark as requested
+    await query(
+      `UPDATE news_items SET ai_analysis_requested = true WHERE id = $1`,
+      [articleId]
+    );
+
+    // Process the article
+    const success = await processNewsWithAI(item);
+
+    if (success) {
+      console.log(`✅ On-demand analysis complete for article ${articleId}`);
+    } else {
+      console.log(`❌ On-demand analysis failed for article ${articleId}`);
+    }
+
+    return success;
+  } catch (error) {
+    console.error(`❌ Error processing article ${articleId}:`, error);
+    return false;
+  }
+}
+
+/**
+ * Main processing cycle - Conservative approach
+ * Processes requested articles first, then top 4 per category every 5 minutes
  */
 async function processAIBatch() {
   try {
@@ -111,31 +198,50 @@ async function processAIBatch() {
       return;
     }
 
-    // Fetch unprocessed news items (5 at a time for better quota management)
-    const unprocessedItems = await fetchUnprocessedNews(5);
-
-    if (unprocessedItems.length === 0) {
-      console.log('✅ No unprocessed news items found');
-      return;
-    }
-
-    console.log(`🔄 Processing ${unprocessedItems.length} news items with AI...`);
-
     let successCount = 0;
     let failureCount = 0;
 
-    // Process items sequentially to respect rate limits
-    // OpenRouter free tier likely has rate limits - 5-10 req/sec is safe
-    for (const item of unprocessedItems) {
-      const success = await processNewsWithAI(item);
-      if (success) {
-        successCount++;
-      } else {
-        failureCount++;
-      }
+    // PRIORITY 1: Process user-requested articles first
+    const requestedItems = await fetchRequestedArticles();
+    if (requestedItems.length > 0) {
+      console.log(`🎯 Processing ${requestedItems.length} user-requested articles...`);
 
-      // Respectful delay between API calls (200ms = 5 req/sec)
-      await new Promise((resolve) => setTimeout(resolve, 200));
+      for (const item of requestedItems) {
+        const success = await processNewsWithAI(item);
+        if (success) {
+          successCount++;
+        } else {
+          failureCount++;
+        }
+
+        // Respectful delay between API calls (500ms = 2 req/sec)
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+    }
+
+    // PRIORITY 2: Process top 4 articles per category (background processing)
+    const unprocessedItems = await fetchUnprocessedNewsByCategory();
+
+    if (unprocessedItems.length === 0 && requestedItems.length === 0) {
+      console.log('✅ No articles to process');
+      return;
+    }
+
+    if (unprocessedItems.length > 0) {
+      console.log(`🔄 Processing ${unprocessedItems.length} background articles (top 4 per category)...`);
+
+      // Process items sequentially to respect rate limits
+      for (const item of unprocessedItems) {
+        const success = await processNewsWithAI(item);
+        if (success) {
+          successCount++;
+        } else {
+          failureCount++;
+        }
+
+        // Respectful delay between API calls (500ms = 2 req/sec for token conservation)
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
     }
 
     const totalProcessed = successCount + failureCount;
@@ -163,17 +269,18 @@ export async function startAIWorker() {
     return;
   }
 
-  console.log(`🚀 AI Worker running - processing 5 articles every 2 minutes (optimized for quota)`);
+  console.log(`🚀 AI Worker running - processing top 4 articles per category every 5 minutes`);
+  console.log(`📊 Conservative approach: max 12 articles per cycle = ~3,456/day`);
   console.log(`🔑 Using model: ${status.model}`);
   console.log(`📊 Daily quota: ${status.quota.used}/${status.quota.limit} (${status.quota.percentage}%) | ${status.quota.remaining} remaining`);
 
   // Immediate first run
   await processAIBatch();
 
-  // Then process every 2 minutes (120 seconds)
-  // Optimized to process ~150/hour instead of 1,200/hour (87% reduction)
-  // This keeps us well under the 14.4K daily limit
+  // Then process every 5 minutes (300 seconds)
+  // Ultra-conservative: 12 articles × 12 cycles/hour × 24 hours = 3,456 articles/day max
+  // Combined with 800 max_tokens per request, keeps us well under Groq token limits
   setInterval(async () => {
     await processAIBatch();
-  }, 120000);
+  }, 300000);
 }

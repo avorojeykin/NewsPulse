@@ -26,7 +26,7 @@ Article Title: ${title}${articleText}
 Provide your analysis as a JSON object with this exact structure:
 {
   "sentiment": {
-    "label": "bullish" | "bearish" | "neutral",
+    "label": ${category === 'sports' ? '"favorable" | "unfavorable" | "neutral"' : '"bullish" | "bearish" | "neutral"'},
     "confidence": 0.0-1.0,
     "reasoning": "brief explanation (1 sentence)"
   },
@@ -73,11 +73,12 @@ function getCategoryContext(
     case 'sports':
       return {
         expertType: 'sports betting',
-        context: `Focus on:
-- Sentiment: Bullish (favorable for betting outcomes), Bearish (unfavorable), or Neutral
-- Impact: Critical (game-changing injuries/suspensions), High (starting lineup changes), Medium (performance trends), Low (general commentary)
-- Consider: Injuries, suspensions, lineup changes, recent performance, betting trends
-- Entities: Extract team names, player names, sports leagues mentioned`,
+        context: `You are analyzing sports news for betting implications. Focus on:
+- Sentiment: Favorable (positive news for betting position), Unfavorable (negative news for betting position), or Neutral
+- Impact: Critical (star player injury/suspension before game), High (key lineup changes/coaching decisions), Medium (recent form/team news), Low (general commentary/historical stats)
+- Consider: Player injuries/returns, lineup changes, coaching decisions, recent team performance, weather conditions, home/away advantage
+- Betting Angle: How does this news affect point spreads, over/unders, and moneyline odds?
+- Entities: Extract team names, player names, sports leagues, upcoming games mentioned`,
       };
 
     default:
@@ -96,7 +97,7 @@ export function validateAnalysisResponse(response: any): boolean {
     // Validate sentiment
     if (
       !response.sentiment ||
-      !['bullish', 'bearish', 'neutral'].includes(response.sentiment.label) ||
+      !['bullish', 'bearish', 'neutral', 'favorable', 'unfavorable'].includes(response.sentiment.label) ||
       typeof response.sentiment.confidence !== 'number' ||
       response.sentiment.confidence < 0 ||
       response.sentiment.confidence > 1 ||

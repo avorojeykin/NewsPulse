@@ -19,7 +19,7 @@ interface NewsItem {
   fetched_at: string;
   ai_processed?: boolean;
   ai_sentiment?: {
-    label: 'bullish' | 'bearish' | 'neutral';
+    label: 'bullish' | 'bearish' | 'neutral' | 'favorable' | 'unfavorable';
     confidence: number;
     reasoning: string;
   };
@@ -54,6 +54,7 @@ export default function NewsFeeds({ initialCategory = 'crypto', userId }: NewsFe
   const [isPremium, setIsPremium] = useState<boolean>(false);
   const [userTier, setUserTier] = useState<'free' | 'premium' | 'pro'>('free');
   const [checkingTier, setCheckingTier] = useState(true);
+  const [analyzingArticles, setAnalyzingArticles] = useState<Set<number>>(new Set());
 
   // Check premium status when userId is available
   useEffect(() => {
@@ -113,6 +114,42 @@ export default function NewsFeeds({ initialCategory = 'crypto', userId }: NewsFe
 
   const handleTickerSelect = (ticker: string | null) => {
     setSelectedTicker(ticker);
+  };
+
+  const handleGenerateAI = async (articleId: number) => {
+    try {
+      // Mark as analyzing
+      setAnalyzingArticles((prev) => new Set(prev).add(articleId));
+
+      const response = await fetch(`/api/news/${articleId}/analyze`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to request AI analysis');
+      }
+
+      const data = await response.json();
+
+      if (data.status === 'processing' || data.status === 'already_processed') {
+        // Poll for results after 3 seconds
+        setTimeout(() => {
+          fetchNews(activeTab, selectedTicker);
+          setAnalyzingArticles((prev) => {
+            const newSet = new Set(prev);
+            newSet.delete(articleId);
+            return newSet;
+          });
+        }, 3000);
+      }
+    } catch (error) {
+      console.error('Error generating AI analysis:', error);
+      setAnalyzingArticles((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(articleId);
+        return newSet;
+      });
+    }
   };
 
   const handleUpgrade = async () => {
@@ -344,6 +381,55 @@ export default function NewsFeeds({ initialCategory = 'crypto', userId }: NewsFe
                             console.log('Open AI Dashboard for item:', item.id);
                           } : undefined}
                         />
+                      </div>
+                    )}
+
+                    {/* Generate AI Analysis Button (if not processed) */}
+                    {!item.ai_processed && (
+                      <div className="mb-3">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleGenerateAI(item.id);
+                          }}
+                          disabled={analyzingArticles.has(item.id)}
+                          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                          style={{
+                            backgroundColor: analyzingArticles.has(item.id)
+                              ? categoryTheme.glow
+                              : categoryTheme.glow,
+                            color: categoryTheme.primary,
+                            borderWidth: '2px',
+                            borderColor: categoryTheme.border,
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!analyzingArticles.has(item.id)) {
+                              e.currentTarget.style.backgroundColor = categoryTheme.primary;
+                              e.currentTarget.style.color = theme.colors.background.primary;
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!analyzingArticles.has(item.id)) {
+                              e.currentTarget.style.backgroundColor = categoryTheme.glow;
+                              e.currentTarget.style.color = categoryTheme.primary;
+                            }
+                          }}
+                        >
+                          {analyzingArticles.has(item.id) ? (
+                            <>
+                              <div
+                                className="w-4 h-4 border-2 border-transparent rounded-full animate-spin"
+                                style={{ borderTopColor: categoryTheme.primary }}
+                              />
+                              <span>Analyzing...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="w-4 h-4" />
+                              <span>Generate AI Analysis</span>
+                            </>
+                          )}
+                        </button>
                       </div>
                     )}
 
