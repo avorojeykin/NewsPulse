@@ -55,6 +55,7 @@ export default function NewsFeeds({ initialCategory = 'crypto', userId }: NewsFe
   const [userTier, setUserTier] = useState<'free' | 'premium' | 'pro'>('free');
   const [checkingTier, setCheckingTier] = useState(true);
   const [analyzingArticles, setAnalyzingArticles] = useState<Set<number>>(new Set());
+  const [analysisProgress, setAnalysisProgress] = useState<Map<number, string>>(new Map());
 
   // Check premium status when userId is available
   useEffect(() => {
@@ -120,35 +121,187 @@ export default function NewsFeeds({ initialCategory = 'crypto', userId }: NewsFe
     try {
       // Mark as analyzing
       setAnalyzingArticles((prev) => new Set(prev).add(articleId));
+      setAnalysisProgress((prev) => {
+        const newMap = new Map(prev);
+        newMap.set(articleId, 'Sending request...');
+        return newMap;
+      });
+
+      console.log(`🎯 Requesting AI analysis for article ${articleId}`);
 
       const response = await fetch(`/api/news/${articleId}/analyze`, {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       });
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ AI analysis request failed: ${response.status} - ${errorText}`);
         throw new Error('Failed to request AI analysis');
       }
 
       const data = await response.json();
+      console.log(`✅ AI analysis response:`, data);
 
-      if (data.status === 'processing' || data.status === 'already_processed') {
-        // Poll for results after 3 seconds
+      if (data.status === 'processing') {
+        setAnalysisProgress((prev) => {
+          const newMap = new Map(prev);
+          newMap.set(articleId, 'AI analyzing...');
+          return newMap;
+        });
+
+        // Poll for completion with progressive feedback
+        let attempts = 0;
+        const maxAttempts = 15; // 15 attempts × 2 seconds = 30 seconds max
+        const pollInterval = 2000; // Check every 2 seconds
+
+        const pollForCompletion = async () => {
+          attempts++;
+
+          // Update progress message
+          if (attempts <= 3) {
+            setAnalysisProgress((prev) => {
+              const newMap = new Map(prev);
+              newMap.set(articleId, 'Analyzing sentiment...');
+              return newMap;
+            });
+          } else if (attempts <= 6) {
+            setAnalysisProgress((prev) => {
+              const newMap = new Map(prev);
+              newMap.set(articleId, 'Evaluating impact...');
+              return newMap;
+            });
+          } else {
+            setAnalysisProgress((prev) => {
+              const newMap = new Map(prev);
+              newMap.set(articleId, 'Finalizing analysis...');
+              return newMap;
+            });
+          }
+
+          // Fetch updated news to check if analysis is complete
+          try {
+            const tickerParam = selectedTicker ? `&ticker=${selectedTicker}` : '';
+            const userParam = userId ? `&userId=${userId}` : '';
+            const checkResponse = await fetch(`/api/news/${activeTab}?limit=20${tickerParam}${userParam}`);
+
+            if (checkResponse.ok) {
+              const checkData = await checkResponse.json();
+              const updatedArticle = checkData.news.find((n: NewsItem) => n.id === articleId);
+
+              if (updatedArticle?.ai_processed) {
+                // Success! Analysis complete
+                console.log(`✅ AI analysis complete for article ${articleId}`);
+                setAnalysisProgress((prev) => {
+                  const newMap = new Map(prev);
+                  newMap.set(articleId, '✓ Analysis complete!');
+                  return newMap;
+                });
+
+                // Update the news list
+                setNews(checkData.news);
+
+                // Clean up after showing success message briefly
+                setTimeout(() => {
+                  setAnalyzingArticles((prev) => {
+                    const newSet = new Set(prev);
+                    newSet.delete(articleId);
+                    return newSet;
+                  });
+                  setAnalysisProgress((prev) => {
+                    const newMap = new Map(prev);
+                    newMap.delete(articleId);
+                    return newMap;
+                  });
+                }, 1500);
+
+                return; // Stop polling
+              }
+            }
+          } catch (pollError) {
+            console.error('Polling error:', pollError);
+          }
+
+          // Continue polling if not complete and haven't exceeded max attempts
+          if (attempts < maxAttempts) {
+            setTimeout(pollForCompletion, pollInterval);
+          } else {
+            // Timeout after max attempts
+            console.warn(`⏱️ AI analysis timeout for article ${articleId} after ${maxAttempts} attempts`);
+            setAnalysisProgress((prev) => {
+              const newMap = new Map(prev);
+              newMap.set(articleId, '⚠️ Taking longer than expected...');
+              return newMap;
+            });
+
+            // Clean up after timeout
+            setTimeout(() => {
+              setAnalyzingArticles((prev) => {
+                const newSet = new Set(prev);
+                newSet.delete(articleId);
+                return newSet;
+              });
+              setAnalysisProgress((prev) => {
+                const newMap = new Map(prev);
+                newMap.delete(articleId);
+                return newMap;
+              });
+              // Force refresh to see if it completed
+              fetchNews(activeTab, selectedTicker);
+            }, 2000);
+          }
+        };
+
+        // Start polling after initial delay
+        setTimeout(pollForCompletion, pollInterval);
+
+      } else if (data.status === 'already_processed') {
+        // Article already has analysis, just refresh
+        console.log(`ℹ️ Article ${articleId} already has AI analysis`);
+        setAnalysisProgress((prev) => {
+          const newMap = new Map(prev);
+          newMap.set(articleId, '✓ Already analyzed!');
+          return newMap;
+        });
+
+        fetchNews(activeTab, selectedTicker);
+
         setTimeout(() => {
-          fetchNews(activeTab, selectedTicker);
           setAnalyzingArticles((prev) => {
             const newSet = new Set(prev);
             newSet.delete(articleId);
             return newSet;
           });
-        }, 3000);
+          setAnalysisProgress((prev) => {
+            const newMap = new Map(prev);
+            newMap.delete(articleId);
+            return newMap;
+          });
+        }, 1500);
       }
     } catch (error) {
       console.error('Error generating AI analysis:', error);
-      setAnalyzingArticles((prev) => {
-        const newSet = new Set(prev);
-        newSet.delete(articleId);
-        return newSet;
+      setAnalysisProgress((prev) => {
+        const newMap = new Map(prev);
+        newMap.set(articleId, '❌ Failed - Try again');
+        return newMap;
       });
+
+      // Clean up error state after showing message
+      setTimeout(() => {
+        setAnalyzingArticles((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(articleId);
+          return newSet;
+        });
+        setAnalysisProgress((prev) => {
+          const newMap = new Map(prev);
+          newMap.delete(articleId);
+          return newMap;
+        });
+      }, 3000);
     }
   };
 
@@ -393,14 +546,13 @@ export default function NewsFeeds({ initialCategory = 'crypto', userId }: NewsFe
                             handleGenerateAI(item.id);
                           }}
                           disabled={analyzingArticles.has(item.id)}
-                          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm transition-all duration-300 disabled:cursor-not-allowed"
                           style={{
-                            backgroundColor: analyzingArticles.has(item.id)
-                              ? categoryTheme.glow
-                              : categoryTheme.glow,
+                            backgroundColor: categoryTheme.glow,
                             color: categoryTheme.primary,
                             borderWidth: '2px',
                             borderColor: categoryTheme.border,
+                            opacity: analyzingArticles.has(item.id) ? 0.9 : 1,
                           }}
                           onMouseEnter={(e) => {
                             if (!analyzingArticles.has(item.id)) {
@@ -421,7 +573,7 @@ export default function NewsFeeds({ initialCategory = 'crypto', userId }: NewsFe
                                 className="w-4 h-4 border-2 border-transparent rounded-full animate-spin"
                                 style={{ borderTopColor: categoryTheme.primary }}
                               />
-                              <span>Analyzing...</span>
+                              <span>{analysisProgress.get(item.id) || 'Analyzing...'}</span>
                             </>
                           ) : (
                             <>
