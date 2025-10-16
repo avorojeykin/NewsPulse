@@ -101,6 +101,7 @@ export default function NewsFeeds({ initialCategory = 'crypto', userId }: NewsFe
     try {
       const tickerParam = ticker ? `&ticker=${ticker}` : '';
       const userParam = userId ? `&userId=${userId}` : '';
+      console.log(`🔵 [FRONTEND] Fetching news from Next.js proxy: /api/news/${vertical}`);
       const response = await fetch(`/api/news/${vertical}?limit=20${tickerParam}${userParam}`);
       if (!response.ok) throw new Error('Failed to fetch news');
       const data = await response.json();
@@ -118,32 +119,44 @@ export default function NewsFeeds({ initialCategory = 'crypto', userId }: NewsFe
   };
 
   const handleGenerateAI = async (articleId: number) => {
+    console.log(`\n🔵 [FRONTEND] handleGenerateAI called for article ${articleId}`);
+    console.log(`🔵 [FRONTEND] Current window.location:`, window.location.href);
+
     try {
       // Mark as analyzing
+      console.log(`🔵 [FRONTEND] Setting analyzingArticles state...`);
       setAnalyzingArticles((prev) => new Set(prev).add(articleId));
       setAnalysisProgress((prev) => {
         const newMap = new Map(prev);
         newMap.set(articleId, 'Sending request...');
         return newMap;
       });
+      console.log(`✅ [FRONTEND] State updated`);
 
-      console.log(`🎯 Requesting AI analysis for article ${articleId}`);
+      const apiUrl = `/api/news/${articleId}/analyze`;
+      console.log(`🔵 [FRONTEND] Constructed API URL (Next.js proxy): ${apiUrl}`);
+      console.log(`🔵 [FRONTEND] Sending POST request to Next.js proxy...`);
 
-      const response = await fetch(`/api/news/${articleId}/analyze`, {
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
       });
 
+      console.log(`🔵 [FRONTEND] Response received`);
+      console.log(`📊 [FRONTEND] Response status: ${response.status} ${response.statusText}`);
+      console.log(`📊 [FRONTEND] Response headers:`, Object.fromEntries(response.headers.entries()));
+
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`❌ AI analysis request failed: ${response.status} - ${errorText}`);
+        console.error(`❌ [FRONTEND] AI analysis request failed: ${response.status} - ${errorText}`);
         throw new Error('Failed to request AI analysis');
       }
 
+      console.log(`🔵 [FRONTEND] Parsing JSON response...`);
       const data = await response.json();
-      console.log(`✅ AI analysis response:`, data);
+      console.log(`✅ [FRONTEND] AI analysis response:`, data);
 
       if (data.status === 'processing') {
         setAnalysisProgress((prev) => {
@@ -538,7 +551,10 @@ export default function NewsFeeds({ initialCategory = 'crypto', userId }: NewsFe
                       <div className="mb-3">
                         <button
                           onClick={(e) => {
+                            console.log(`🔵 [FRONTEND] Button clicked for article ${item.id}`);
+                            console.log(`🔵 [FRONTEND] Event:`, e.type);
                             e.stopPropagation();
+                            console.log(`🔵 [FRONTEND] Calling handleGenerateAI...`);
                             handleGenerateAI(item.id);
                           }}
                           disabled={analyzingArticles.has(item.id)}

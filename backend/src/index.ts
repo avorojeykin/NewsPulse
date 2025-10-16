@@ -19,6 +19,21 @@ app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type');
+
+  // Handle OPTIONS preflight
+  if (req.method === 'OPTIONS') {
+    console.log(`✅ [CORS] Preflight request for ${req.path}`);
+    return res.sendStatus(200);
+  }
+
+  next();
+});
+
+// Request logger middleware - log EVERY request
+app.use((req, res, next) => {
+  console.log(`\n📥 [REQUEST] ${req.method} ${req.path}`);
+  console.log(`📥 [REQUEST] Headers:`, req.headers);
+  console.log(`📥 [REQUEST] Body:`, req.body);
   next();
 });
 
