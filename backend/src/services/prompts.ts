@@ -13,15 +13,17 @@ export interface PromptConfig {
 
 export function generateAnalysisPrompt(config: PromptConfig): string {
   const { category, title, content, ticker } = config;
+  // NOTE: We use title + RSS content/description for better context
+  // RSS content is typically 1-2 paragraphs (~100-200 tokens) - much more context without full article
 
   const categoryContext = getCategoryContext(category, ticker);
-  const articleText = content ? `\n\nArticle Content:\n${content.substring(0, 1000)}` : '';
 
-  return `You are an expert ${categoryContext.expertType} analyst. Analyze this news article and provide structured JSON output.
+  return `You are an expert ${categoryContext.expertType} analyst. Analyze this news and provide structured JSON output.
 
 ${categoryContext.context}
 
-Article Title: ${title}${articleText}
+Headline: ${title}
+${content ? `\nDescription: ${content}` : ''}
 
 Provide your analysis as a JSON object with this exact structure:
 {
@@ -36,8 +38,8 @@ Provide your analysis as a JSON object with this exact structure:
     "reasoning": "brief explanation (1 sentence)"
   },
   "summary": {
-    "tldr": "2-3 sentence summary",
-    "key_points": ["point 1", "point 2", "point 3"],
+    "tldr": "1-2 sentence summary",
+    "key_points": ["point 1", "point 2"],
     "entities": ["entity1", "entity2"]
   }
 }

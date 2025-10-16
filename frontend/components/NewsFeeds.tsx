@@ -522,17 +522,13 @@ export default function NewsFeeds({ initialCategory = 'crypto', userId }: NewsFe
                       {item.title}
                     </h3>
 
-                    {/* AI Badges (Premium & Pro only) */}
+                    {/* AI Badges */}
                     {item.ai_processed && (
                       <div className="mb-3">
                         <AIBadge
                           sentiment={item.ai_sentiment}
                           priceImpact={item.ai_price_impact}
                           userTier={userTier}
-                          onClick={userTier === 'pro' ? () => {
-                            // TODO: Open AI Dashboard modal in Phase 4
-                            console.log('Open AI Dashboard for item:', item.id);
-                          } : undefined}
                         />
                       </div>
                     )}

@@ -1,6 +1,7 @@
 /**
- * AI Worker - Background Processing for News Analysis
- * Supports both scheduled processing (top 4/category) and on-demand analysis
+ * AI Worker - On-Demand Processing for News Analysis
+ * Processes ONLY user-requested articles via "Generate AI Analysis" button clicks
+ * No automatic background processing - conserves tokens and prevents waste
  */
 
 import { query } from '../config/database.js';
@@ -187,8 +188,9 @@ export async function processArticleById(articleId: number): Promise<boolean> {
 }
 
 /**
- * Main processing cycle - Conservative approach
- * Processes requested articles first, then top 4 per category every 5 minutes
+ * Main processing cycle - On-Demand Only Approach
+ * Processes ONLY user-requested articles (button clicks)
+ * No automatic background processing to conserve tokens
  */
 async function processAIBatch() {
   try {
@@ -201,47 +203,26 @@ async function processAIBatch() {
     let successCount = 0;
     let failureCount = 0;
 
-    // PRIORITY 1: Process user-requested articles first
+    // Process ONLY user-requested articles
     const requestedItems = await fetchRequestedArticles();
-    if (requestedItems.length > 0) {
-      console.log(`🎯 Processing ${requestedItems.length} user-requested articles...`);
 
-      for (const item of requestedItems) {
-        const success = await processNewsWithAI(item);
-        if (success) {
-          successCount++;
-        } else {
-          failureCount++;
-        }
-
-        // Respectful delay between API calls (500ms = 2 req/sec)
-        await new Promise((resolve) => setTimeout(resolve, 500));
-      }
-    }
-
-    // PRIORITY 2: Process top 4 articles per category (background processing)
-    const unprocessedItems = await fetchUnprocessedNewsByCategory();
-
-    if (unprocessedItems.length === 0 && requestedItems.length === 0) {
-      console.log('✅ No articles to process');
+    if (requestedItems.length === 0) {
+      // No articles to process (this is normal - only process when users request)
       return;
     }
 
-    if (unprocessedItems.length > 0) {
-      console.log(`🔄 Processing ${unprocessedItems.length} background articles (top 4 per category)...`);
+    console.log(`🎯 Processing ${requestedItems.length} user-requested articles...`);
 
-      // Process items sequentially to respect rate limits
-      for (const item of unprocessedItems) {
-        const success = await processNewsWithAI(item);
-        if (success) {
-          successCount++;
-        } else {
-          failureCount++;
-        }
-
-        // Respectful delay between API calls (500ms = 2 req/sec for token conservation)
-        await new Promise((resolve) => setTimeout(resolve, 500));
+    for (const item of requestedItems) {
+      const success = await processNewsWithAI(item);
+      if (success) {
+        successCount++;
+      } else {
+        failureCount++;
       }
+
+      // Respectful delay between API calls (500ms = 2 req/sec)
+      await new Promise((resolve) => setTimeout(resolve, 500));
     }
 
     const totalProcessed = successCount + failureCount;
@@ -269,18 +250,14 @@ export async function startAIWorker() {
     return;
   }
 
-  console.log(`🚀 AI Worker running - processing top 4 articles per category every 5 minutes`);
-  console.log(`📊 Conservative approach: max 12 articles per cycle = ~3,456/day`);
+  console.log(`🚀 AI Worker running - ON-DEMAND ONLY mode`);
+  console.log(`📊 Processing only user-requested articles (button clicks)`);
   console.log(`🔑 Using model: ${status.model}`);
   console.log(`📊 Daily quota: ${status.quota.used}/${status.quota.limit} (${status.quota.percentage}%) | ${status.quota.remaining} remaining`);
 
-  // Immediate first run
-  await processAIBatch();
-
-  // Then process every 5 minutes (300 seconds)
-  // Ultra-conservative: 12 articles × 12 cycles/hour × 24 hours = 3,456 articles/day max
-  // Combined with 800 max_tokens per request, keeps us well under Groq token limits
+  // Check every 30 seconds for user-requested articles
+  // This is frequent enough to feel responsive while being efficient
   setInterval(async () => {
     await processAIBatch();
-  }, 300000);
+  }, 30000); // 30 seconds
 }
