@@ -133,7 +133,7 @@ export default function NewsFeeds({ initialCategory = 'crypto', userId }: NewsFe
       });
       console.log(`✅ [FRONTEND] State updated`);
 
-      const apiUrl = `/api/news/${articleId}/analyze`;
+      const apiUrl = `/api/analyze/${articleId}`;
       console.log(`🔵 [FRONTEND] Constructed API URL (Next.js proxy): ${apiUrl}`);
       console.log(`🔵 [FRONTEND] Sending POST request to Next.js proxy...`);
 

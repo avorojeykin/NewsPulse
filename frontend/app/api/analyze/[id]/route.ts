@@ -7,7 +7,7 @@ export async function POST(
   try {
     const { id } = await params;
 
-    console.log(`\n🔵 [NEXT-PROXY] POST /api/news/${id}/analyze - Proxying to backend`);
+    console.log(`\n🔵 [NEXT-PROXY] POST /api/analyze/${id} - Proxying to backend`);
 
     // Proxy request to backend
     const backendUrl = process.env.BACKEND_WORKER_URL || 'http://localhost:3001';
