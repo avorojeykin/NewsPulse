@@ -32,7 +32,7 @@ async function fetchRequestedArticles(): Promise<UnprocessedNewsItem[]> {
        WHERE ai_analysis_requested = true
          AND ai_processed = false
          AND published_at > NOW() - INTERVAL '24 hours'
-       ORDER BY created_at DESC
+       ORDER BY fetched_at DESC
        LIMIT 10`,
       []
     );

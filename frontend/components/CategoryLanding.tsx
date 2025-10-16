@@ -185,7 +185,7 @@ export default function CategoryLanding({ userId }: CategoryLandingProps) {
               </div>
             </div>
 
-            {/* AI-Powered (Soon) */}
+            {/* AI-Powered Analysis */}
             <div className="group relative overflow-hidden rounded-2xl p-6 border-2 transition-all duration-300 hover:scale-105 hover:shadow-2xl min-w-[220px]"
               style={{
                 backgroundColor: 'rgba(139, 92, 246, 0.05)',
@@ -197,7 +197,7 @@ export default function CategoryLanding({ userId }: CategoryLandingProps) {
                 <div className="text-sm font-bold text-slate-300 uppercase tracking-wide">AI-Powered</div>
                 <div className="flex items-center justify-center gap-2 mt-1">
                   <div className="px-2 py-0.5 rounded-full bg-purple-500/20 border border-purple-500/30">
-                    <span className="text-xs font-bold text-purple-400">COMING SOON</span>
+                    <span className="text-xs font-bold text-purple-400">ACTIVE</span>
                   </div>
                 </div>
               </div>
