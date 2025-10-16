@@ -17,17 +17,35 @@ interface FeedConfig {
 async function fetchRSSFeed(feedConfig: FeedConfig, vertical: Vertical): Promise<NewsItem[]> {
   try {
     const feed = await parser.parseURL(feedConfig.url);
-    const items: NewsItem[] = feed.items.slice(0, 5).map((item) => ({
-      source: feedConfig.name,
-      vertical,
-      title: item.title || 'Untitled',
-      content: item.contentSnippet || item.summary || item.content || '',
-      url: item.link || '',
-      publishedAt: new Date(item.pubDate || item.isoDate || Date.now()),
-      hash: generateHash(item.title || '', item.link || ''),
-    }));
+    const items: NewsItem[] = feed.items.slice(0, 5).map((item) => {
+      // Try multiple content fields in order of preference
+      const content =
+        item.contentSnippet ||
+        item.summary ||
+        item.description ||
+        item.content ||
+        item['content:encoded'] ||
+        (item as any).excerpt ||
+        '';
 
-    console.log(`📰 Fetched ${items.length} items from ${feedConfig.name} (${vertical})`);
+      // Debug logging for stocks to see what fields are available
+      if (vertical === 'stocks' && !content) {
+        console.log(`⚠️ [${feedConfig.name}] No content found. Available fields:`, Object.keys(item));
+      }
+
+      return {
+        source: feedConfig.name,
+        vertical,
+        title: item.title || 'Untitled',
+        content,
+        url: item.link || '',
+        publishedAt: new Date(item.pubDate || item.isoDate || Date.now()),
+        hash: generateHash(item.title || '', item.link || ''),
+      };
+    });
+
+    const itemsWithContent = items.filter(i => i.content).length;
+    console.log(`📰 Fetched ${items.length} items from ${feedConfig.name} (${vertical}) - ${itemsWithContent} with content`);
     return items;
   } catch (error) {
     console.error(`❌ Error fetching ${feedConfig.name}:`, error instanceof Error ? error.message : error);

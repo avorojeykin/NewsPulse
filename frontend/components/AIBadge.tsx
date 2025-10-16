@@ -168,13 +168,6 @@ export default function AIBadge({ sentiment, priceImpact, userTier, onClick }: A
           {impactStyle.text}
         </span>
       </div>
-
-      {/* Premium tier CTA - subtle hint to upgrade */}
-      {userTier === 'premium' && (
-        <div className="text-[10px] text-slate-500 font-medium italic">
-          Upgrade to Pro for detailed analysis
-        </div>
-      )}
     </div>
   );
 }

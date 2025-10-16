@@ -124,7 +124,7 @@ export class AIService {
       console.log(`📊 [AI-SERVICE] Request params:`, {
         model: this.model,
         temperature: 0.3,
-        max_tokens: 800,
+        max_tokens: 600,
       });
 
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
@@ -142,7 +142,7 @@ export class AIService {
             },
           ],
           temperature: 0.3, // Lower temperature for more consistent analysis
-          max_tokens: 800, // Reduced from 1000 to save token quota
+          max_tokens: 600, // Optimized for concise responses
         }),
       });
 

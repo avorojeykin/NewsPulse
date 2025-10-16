@@ -18,75 +18,85 @@ export function generateAnalysisPrompt(config: PromptConfig): string {
 
   const categoryContext = getCategoryContext(category, ticker);
 
-  return `You are an expert ${categoryContext.expertType} analyst. Analyze this news and provide structured JSON output.
+  return `Expert ${categoryContext.expertType} analyst. Be CRITICAL and REALISTIC.
 
 ${categoryContext.context}
 
-Headline: ${title}
-${content ? `\nDescription: ${content}` : ''}
+News: ${title}
+${content ? `\nDetails: ${content}` : ''}
 
-Provide your analysis as a JSON object with this exact structure:
+CONFIDENCE RULES (use full 0.3-0.95 range):
+- 0.9-0.95: Definitive events only (confirmed partnerships, actual hacks, earnings)
+- 0.7-0.85: Clear news, some uncertainty
+- 0.5-0.65: Moderate signals, mixed factors
+- 0.3-0.45: Speculative, opinion, analysis
+- KEY: If explaining WHY (not announcing WHAT), use LOW confidence
+
+${categoryContext.impactGuidelines}
+
+Return ONLY this JSON:
 {
   "sentiment": {
-    "label": ${category === 'sports' ? '"favorable" | "unfavorable" | "neutral"' : '"bullish" | "bearish" | "neutral"'},
-    "confidence": 0.0-1.0,
-    "reasoning": "brief explanation (1 sentence)"
+    "label": ${category === 'sports' ? '"favorable"|"unfavorable"|"neutral"' : '"bullish"|"bearish"|"neutral"'},
+    "confidence": 0.3-0.95,
+    "reasoning": "1 sentence"
   },
   "price_impact": {
-    "level": "critical" | "high" | "medium" | "low",
-    "direction": "up" | "down" | "uncertain",
-    "reasoning": "brief explanation (1 sentence)"
+    "level": "critical"|"high"|"medium"|"low",
+    "direction": "up"|"down"|"uncertain",
+    "reasoning": "1 sentence"
   },
   "summary": {
-    "tldr": "1-2 sentence summary",
-    "key_points": ["point 1", "point 2"],
-    "entities": ["entity1", "entity2"]
+    "tldr": "2 sentences max",
+    "key_points": ["2-3 points"],
+    "entities": ["names mentioned"]
   }
-}
-
-IMPORTANT: Respond ONLY with valid JSON. No additional text or explanation.`;
+}`;
 }
 
 function getCategoryContext(
   category: string,
   ticker?: string
-): { expertType: string; context: string } {
+): { expertType: string; context: string; impactGuidelines: string } {
   switch (category) {
     case 'crypto':
       return {
-        expertType: 'cryptocurrency',
-        context: `Focus on:
-- Sentiment: Bullish (positive for crypto prices), Bearish (negative), or Neutral
-- Impact: Critical (regulatory/major hacks), High (exchange listings/ETF news), Medium (partnerships), Low (opinion pieces)
-- Consider: Regulatory changes, adoption news, technical developments, market sentiment
-- Entities: Extract cryptocurrency names, companies, protocols mentioned`,
+        expertType: 'crypto',
+        context: `Sentiment: bullish/bearish/neutral. Extract coins, companies, protocols.`,
+        impactGuidelines: `IMPACT (be strict):
+CRITICAL: SEC rulings, country bans, major hacks (>$100M), exploits
+HIGH: Exchange listings, ETF flows, major partnerships, hard forks
+MEDIUM: Partnerships, upgrades, whale moves
+LOW: Opinions, price analysis, "why X down" articles`,
       };
 
     case 'stocks':
       return {
-        expertType: 'stock market',
-        context: `${ticker ? `Analyzing news for ${ticker}. ` : ''}Focus on:
-- Sentiment: Bullish (positive for stock price), Bearish (negative), or Neutral
-- Impact: Critical (earnings surprises/major events), High (earnings/guidance), Medium (analyst upgrades/downgrades), Low (general news)
-- Consider: Earnings reports, guidance changes, analyst ratings, market trends, sector news
-- Entities: Extract company names, tickers, executives, sectors mentioned`,
+        expertType: 'stock',
+        context: `${ticker ? `Stock: ${ticker}. ` : ''}Sentiment: bullish/bearish/neutral. Extract tickers, execs.`,
+        impactGuidelines: `IMPACT (be strict):
+CRITICAL: Earnings surprise >20%, CEO exits, M&A, bankruptcy
+HIGH: Earnings, guidance, launches, FDA approvals, splits
+MEDIUM: Analyst ratings, targets, exec appointments
+LOW: Opinions, sector news, "why X down" articles`,
       };
 
     case 'sports':
       return {
         expertType: 'sports betting',
-        context: `You are analyzing sports news for betting implications. Focus on:
-- Sentiment: Favorable (positive news for betting position), Unfavorable (negative news for betting position), or Neutral
-- Impact: Critical (star player injury/suspension before game), High (key lineup changes/coaching decisions), Medium (recent form/team news), Low (general commentary/historical stats)
-- Consider: Player injuries/returns, lineup changes, coaching decisions, recent team performance, weather conditions, home/away advantage
-- Betting Angle: How does this news affect point spreads, over/unders, and moneyline odds?
-- Entities: Extract team names, player names, sports leagues, upcoming games mentioned`,
+        context: `Sentiment: favorable/unfavorable/neutral for betting. Extract teams, players, games.`,
+        impactGuidelines: `IMPACT (be strict):
+CRITICAL: Star injury <48h to game, starting QB/pitcher out, coach fired
+HIGH: Key returns, lineup changes, weather impacts
+MEDIUM: Form updates, practice news, minor injuries
+LOW: Commentary, predictions, stats, "why team lost"`,
       };
 
     default:
       return {
         expertType: 'news',
         context: 'Analyze the sentiment and potential impact of this news article.',
+        impactGuidelines: 'Use critical thinking to assess real impact vs. noise.',
       };
   }
 }
@@ -101,8 +111,8 @@ export function validateAnalysisResponse(response: any): boolean {
       !response.sentiment ||
       !['bullish', 'bearish', 'neutral', 'favorable', 'unfavorable'].includes(response.sentiment.label) ||
       typeof response.sentiment.confidence !== 'number' ||
-      response.sentiment.confidence < 0 ||
-      response.sentiment.confidence > 1 ||
+      response.sentiment.confidence < 0.3 ||  // Updated: minimum 0.3
+      response.sentiment.confidence > 0.95 || // Updated: maximum 0.95
       typeof response.sentiment.reasoning !== 'string'
     ) {
       return false;
