@@ -89,20 +89,43 @@ export class AIService {
    * Analyze a news article using AI
    */
   async analyzeNews(config: PromptConfig): Promise<AIAnalysisResult | null> {
+    console.log(`\n🤖 [AI-SERVICE] analyzeNews called`);
+    console.log(`📊 [AI-SERVICE] Config:`, {
+      category: config.category,
+      ticker: config.ticker || 'none',
+      titleLength: config.title.length,
+      contentLength: config.content?.length || 0,
+      hasUrl: !!config.url,
+    });
+
     if (!this.apiKey) {
-      console.error('❌ Groq API key not configured');
+      console.error('❌ [AI-SERVICE] Groq API key not configured');
       return null;
     }
+    console.log(`✅ [AI-SERVICE] API key is configured`);
 
     // Check quota before making request
+    console.log(`🔍 [AI-SERVICE] Checking quota...`);
     if (!this.isWithinQuota()) {
       const quota = this.getRemainingQuota();
-      console.warn(`⚠️  Daily quota exceeded: ${quota.used}/${quota.limit} requests used`);
+      console.warn(`⚠️  [AI-SERVICE] Daily quota exceeded: ${quota.used}/${quota.limit} requests used`);
       return null;
     }
+    const quota = this.getRemainingQuota();
+    console.log(`✅ [AI-SERVICE] Quota OK: ${quota.used}/${quota.limit} (${quota.percentage}%)`);
 
     try {
+      console.log(`🔍 [AI-SERVICE] Generating prompt...`);
       const prompt = generateAnalysisPrompt(config);
+      console.log(`📝 [AI-SERVICE] Prompt generated (${prompt.length} chars)`);
+      console.log(`📝 [AI-SERVICE] Prompt preview (first 300 chars):`, prompt.substring(0, 300) + '...');
+
+      console.log(`🔍 [AI-SERVICE] Sending request to Groq API...`);
+      console.log(`📊 [AI-SERVICE] Request params:`, {
+        model: this.model,
+        temperature: 0.3,
+        max_tokens: 800,
+      });
 
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
         method: 'POST',
@@ -125,38 +148,52 @@ export class AIService {
 
       // Increment quota counter
       dailyRequestCount++;
+      console.log(`📊 [AI-SERVICE] Quota incremented: ${dailyRequestCount}/${DAILY_LIMIT}`);
+
+      console.log(`📊 [AI-SERVICE] Response status: ${response.status} ${response.statusText}`);
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`❌ Groq API error (${response.status}):`, errorText);
+        console.error(`❌ [AI-SERVICE] Groq API error (${response.status}):`, errorText);
         return null;
       }
 
+      console.log(`✅ [AI-SERVICE] Response OK, parsing JSON...`);
       const data = await response.json();
       const content = data.choices?.[0]?.message?.content;
 
       if (!content) {
-        console.error('❌ No content in Groq response');
+        console.error('❌ [AI-SERVICE] No content in Groq response');
+        console.error('❌ [AI-SERVICE] Response data:', JSON.stringify(data, null, 2));
         return null;
       }
 
-      console.log(`🔍 AI raw response (first 200 chars): ${content.substring(0, 200)}...`);
+      console.log(`✅ [AI-SERVICE] Content received (${content.length} chars)`);
+      console.log(`🔍 [AI-SERVICE] AI raw response (first 200 chars): ${content.substring(0, 200)}...`);
 
       // Parse JSON response
+      console.log(`🔍 [AI-SERVICE] Parsing JSON response...`);
       let analysisResult: AIAnalysisResult;
       try {
         let jsonStr = content.trim();
 
         // Try 1: Extract from markdown code blocks if present
+        console.log(`🔍 [AI-SERVICE] Try 1: Checking for markdown code blocks...`);
         const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
         if (jsonMatch) {
           jsonStr = jsonMatch[1].trim();
+          console.log(`✅ [AI-SERVICE] Extracted JSON from code block`);
+        } else {
+          console.log(`ℹ️ [AI-SERVICE] No code blocks found, using raw content`);
         }
 
         // Try 2: Parse as-is
+        console.log(`🔍 [AI-SERVICE] Try 2: Parsing JSON (${jsonStr.length} chars)...`);
         try {
           analysisResult = JSON.parse(jsonStr);
+          console.log(`✅ [AI-SERVICE] JSON parsed successfully`);
         } catch (firstError) {
+          console.log(`⚠️ [AI-SERVICE] Try 2 failed, attempting cleanup...`);
           // Try 3: Remove trailing extra braces (common AI error)
           // Find the position of the last valid closing brace
           let bracketCount = 0;
@@ -175,31 +212,38 @@ export class AIService {
 
           if (lastValidIndex > 0) {
             const cleanedJson = jsonStr.substring(0, lastValidIndex + 1);
+            console.log(`🔍 [AI-SERVICE] Try 3: Parsing cleaned JSON (${cleanedJson.length} chars)...`);
             analysisResult = JSON.parse(cleanedJson);
-            console.log('⚠️  Fixed malformed JSON by removing trailing characters');
+            console.log('⚠️  [AI-SERVICE] Fixed malformed JSON by removing trailing characters');
           } else {
+            console.error(`❌ [AI-SERVICE] Could not fix malformed JSON`);
             throw firstError;
           }
         }
       } catch (parseError) {
-        console.error('❌ Failed to parse AI response as JSON:', content);
+        console.error('❌ [AI-SERVICE] Failed to parse AI response as JSON:', content);
+        console.error('❌ [AI-SERVICE] Parse error:', parseError);
         return null;
       }
 
       // Validate response structure
+      console.log(`🔍 [AI-SERVICE] Validating response structure...`);
       if (!validateAnalysisResponse(analysisResult)) {
-        console.error('❌ Invalid AI response structure:', analysisResult);
+        console.error('❌ [AI-SERVICE] Invalid AI response structure:', JSON.stringify(analysisResult, null, 2));
         return null;
       }
+      console.log(`✅ [AI-SERVICE] Response structure is valid`);
 
-      const quota = this.getRemainingQuota();
+      const quotaFinal = this.getRemainingQuota();
       console.log(
-        `✅ AI parsed successfully: ${analysisResult.sentiment.label} (${Math.round(analysisResult.sentiment.confidence * 100)}%) | ${analysisResult.price_impact.level} | Quota: ${quota.used}/${quota.limit} (${quota.percentage}%)`
+        `✅ [AI-SERVICE] AI parsed successfully: ${analysisResult.sentiment.label} (${Math.round(analysisResult.sentiment.confidence * 100)}%) | ${analysisResult.price_impact.level} | Quota: ${quotaFinal.used}/${quotaFinal.limit} (${quotaFinal.percentage}%)`
       );
 
       return analysisResult;
     } catch (error) {
-      console.error('❌ Error calling Groq API:', error);
+      console.error('❌ [AI-SERVICE] Error calling Groq API:', error);
+      console.error('❌ [AI-SERVICE] Error details:', error instanceof Error ? error.message : String(error));
+      console.error('❌ [AI-SERVICE] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
       return null;
     }
   }

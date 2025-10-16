@@ -94,7 +94,16 @@ async function fetchUnprocessedNewsByCategory(): Promise<UnprocessedNewsItem[]> 
  */
 async function processNewsWithAI(item: UnprocessedNewsItem): Promise<boolean> {
   try {
+    console.log(`\n🤖 [PROCESS] Starting AI analysis for article ${item.id}`);
+    console.log(`📊 [PROCESS] Input:`, {
+      category: item.category,
+      ticker: item.ticker || 'none',
+      titleLength: item.title.length,
+      contentLength: item.content?.length || 0,
+    });
+
     // Call AI service for analysis
+    console.log(`🔍 [PROCESS] Calling aiService.analyzeNews...`);
     const analysis = await aiService.analyzeNews({
       category: item.category as 'crypto' | 'stocks' | 'sports',
       ticker: item.ticker,
@@ -104,11 +113,19 @@ async function processNewsWithAI(item: UnprocessedNewsItem): Promise<boolean> {
     });
 
     if (!analysis) {
-      console.log(`⚠️  AI analysis failed for: ${item.title.substring(0, 50)}...`);
+      console.log(`⚠️  [PROCESS] AI analysis returned null for: ${item.title.substring(0, 50)}...`);
       return false;
     }
 
+    console.log(`✅ [PROCESS] AI analysis successful`);
+    console.log(`📊 [PROCESS] Analysis result:`, {
+      sentiment: analysis.sentiment.label,
+      confidence: (analysis.sentiment.confidence * 100).toFixed(0) + '%',
+      impact: analysis.price_impact.level,
+    });
+
     // Store AI analysis in database
+    console.log(`🔍 [PROCESS] Storing analysis in database for article ${item.id}...`);
     await query(
       `UPDATE news_items
        SET ai_processed = true,
@@ -126,12 +143,14 @@ async function processNewsWithAI(item: UnprocessedNewsItem): Promise<boolean> {
     );
 
     console.log(
-      `🤖 AI processed [${item.category}]: ${item.title.substring(0, 50)}... | Sentiment: ${analysis.sentiment.label} (${(analysis.sentiment.confidence * 100).toFixed(0)}%) | Impact: ${analysis.price_impact.level}`
+      `🤖 [PROCESS] AI processed [${item.category}]: ${item.title.substring(0, 50)}... | Sentiment: ${analysis.sentiment.label} (${(analysis.sentiment.confidence * 100).toFixed(0)}%) | Impact: ${analysis.price_impact.level}`
     );
 
     return true;
   } catch (error) {
-    console.error(`❌ Error processing news item ${item.id} with AI:`, error);
+    console.error(`❌ [PROCESS] Error processing news item ${item.id} with AI:`, error);
+    console.error(`❌ [PROCESS] Error details:`, error instanceof Error ? error.message : String(error));
+    console.error(`❌ [PROCESS] Error stack:`, error instanceof Error ? error.stack : 'No stack trace');
     return false;
   }
 }
@@ -143,13 +162,20 @@ async function processNewsWithAI(item: UnprocessedNewsItem): Promise<boolean> {
  */
 export async function processArticleById(articleId: number): Promise<boolean> {
   try {
+    console.log(`\n🔍 [WORKER] processArticleById called for article ${articleId}`);
+
     // Check if AI service is available
+    console.log(`🔍 [WORKER] Checking AI service availability...`);
     if (!aiService.isAvailable()) {
-      console.log('⏸️  AI service not available');
+      console.log('⏸️  [WORKER] AI service not available');
+      const status = aiService.getStatus();
+      console.log(`📊 [WORKER] AI Service status:`, JSON.stringify(status, null, 2));
       return false;
     }
+    console.log(`✅ [WORKER] AI service is available`);
 
     // Fetch the specific article
+    console.log(`🔍 [WORKER] Fetching article ${articleId} from database...`);
     const rows = await query<UnprocessedNewsItem>(
       `SELECT id, category, ticker, title, content, url
        FROM news_items
@@ -158,31 +184,45 @@ export async function processArticleById(articleId: number): Promise<boolean> {
     );
 
     if (rows.length === 0) {
-      console.log(`⚠️  Article ${articleId} not found or already processed`);
+      console.log(`⚠️  [WORKER] Article ${articleId} not found or already processed`);
       return false;
     }
 
     const item = rows[0];
-    console.log(`🎯 Processing on-demand request for article ${articleId}: ${item.title.substring(0, 50)}...`);
+    console.log(`✅ [WORKER] Article fetched successfully`);
+    console.log(`📊 [WORKER] Article details:`, {
+      id: item.id,
+      category: item.category,
+      ticker: item.ticker || 'none',
+      titleLength: item.title.length,
+      contentLength: item.content?.length || 0,
+      hasUrl: !!item.url,
+    });
+    console.log(`🎯 [WORKER] Processing on-demand request for article ${articleId}: ${item.title.substring(0, 50)}...`);
 
     // Mark as requested
+    console.log(`🔍 [WORKER] Marking article ${articleId} as ai_analysis_requested=true...`);
     await query(
       `UPDATE news_items SET ai_analysis_requested = true WHERE id = $1`,
       [articleId]
     );
+    console.log(`✅ [WORKER] Article marked as requested`);
 
     // Process the article
+    console.log(`🤖 [WORKER] Calling processNewsWithAI for article ${articleId}...`);
     const success = await processNewsWithAI(item);
 
     if (success) {
-      console.log(`✅ On-demand analysis complete for article ${articleId}`);
+      console.log(`✅ [WORKER] On-demand analysis complete for article ${articleId}`);
     } else {
-      console.log(`❌ On-demand analysis failed for article ${articleId}`);
+      console.log(`❌ [WORKER] On-demand analysis failed for article ${articleId}`);
     }
 
     return success;
   } catch (error) {
-    console.error(`❌ Error processing article ${articleId}:`, error);
+    console.error(`❌ [WORKER] Error processing article ${articleId}:`, error);
+    console.error(`❌ [WORKER] Error details:`, error instanceof Error ? error.message : String(error));
+    console.error(`❌ [WORKER] Error stack:`, error instanceof Error ? error.stack : 'No stack trace');
     return false;
   }
 }

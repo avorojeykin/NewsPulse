@@ -182,27 +182,34 @@ app.get('/api/news/:id/ai', async (req, res) => {
 app.post('/api/news/:id/analyze', async (req, res) => {
   try {
     const { id } = req.params;
+    console.log(`\n🔍 [API] POST /api/news/${id}/analyze - Request received`);
 
     // Check if article exists
     interface NewsItem {
       id: number;
       title: string;
       ai_processed: boolean;
+      category: string;
     }
 
+    console.log(`🔍 [API] Querying database for article ${id}...`);
     const rows = await query<NewsItem>(
-      `SELECT id, title, ai_processed FROM news_items WHERE id = $1`,
+      `SELECT id, title, ai_processed, category FROM news_items WHERE id = $1`,
       [id]
     );
 
     if (rows.length === 0) {
+      console.log(`❌ [API] Article ${id} not found in database`);
       return res.status(404).json({ error: 'News item not found' });
     }
 
     const article = rows[0];
+    console.log(`✅ [API] Article found: ${article.title.substring(0, 50)}...`);
+    console.log(`📊 [API] Article details: category=${article.category}, ai_processed=${article.ai_processed}`);
 
     // If already processed, return existing analysis
     if (article.ai_processed) {
+      console.log(`ℹ️ [API] Article ${id} already has AI analysis - returning existing`);
       return res.json({
         status: 'already_processed',
         message: 'AI analysis already exists for this article',
@@ -211,12 +218,16 @@ app.post('/api/news/:id/analyze', async (req, res) => {
     }
 
     // Trigger on-demand AI analysis (async)
-    console.log(`📝 On-demand AI analysis requested for article ${id}: ${article.title.substring(0, 50)}...`);
+    console.log(`🎯 [API] Triggering on-demand AI analysis for article ${id}`);
+    console.log(`📝 [API] Article title: ${article.title}`);
 
     // Process in background
     processArticleById(parseInt(id as string)).catch((error) => {
-      console.error(`❌ Background processing failed for article ${id}:`, error);
+      console.error(`❌ [API] Background processing failed for article ${id}:`, error);
+      console.error(`❌ [API] Error stack:`, error.stack);
     });
+
+    console.log(`✅ [API] Response sent: status=processing`);
 
     // Return immediate response
     res.json({
@@ -225,7 +236,9 @@ app.post('/api/news/:id/analyze', async (req, res) => {
       articleId: id,
     });
   } catch (error) {
-    console.error('Error requesting AI analysis:', error);
+    console.error(`❌ [API] Error requesting AI analysis:`, error);
+    console.error(`❌ [API] Error details:`, error instanceof Error ? error.message : String(error));
+    console.error(`❌ [API] Error stack:`, error instanceof Error ? error.stack : 'No stack trace');
     res.status(500).json({ error: 'Failed to request AI analysis' });
   }
 });
