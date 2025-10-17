@@ -49,6 +49,7 @@ export default function NewsFeeds({ initialCategory = 'crypto', userId }: NewsFe
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
   const [news, setNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
   const [isPremium, setIsPremium] = useState<boolean>(false);
@@ -56,6 +57,8 @@ export default function NewsFeeds({ initialCategory = 'crypto', userId }: NewsFe
   const [checkingTier, setCheckingTier] = useState(true);
   const [analyzingArticles, setAnalyzingArticles] = useState<Set<number>>(new Set());
   const [analysisProgress, setAnalysisProgress] = useState<Map<number, string>>(new Map());
+  const [hasMore, setHasMore] = useState(true);
+  const [offset, setOffset] = useState(0);
 
   // Check premium status when userId is available
   useEffect(() => {
@@ -92,30 +95,56 @@ export default function NewsFeeds({ initialCategory = 'crypto', userId }: NewsFe
   }, [userId]);
 
   useEffect(() => {
-    fetchNews(activeTab, selectedTicker);
+    // Reset offset when changing categories or ticker
+    setOffset(0);
+    setHasMore(true);
+    fetchNews(activeTab, selectedTicker, true);
   }, [activeTab, selectedTicker, userId]);
 
-  const fetchNews = async (vertical: Vertical, ticker: string | null = null) => {
-    setLoading(true);
+  const fetchNews = async (vertical: Vertical, ticker: string | null = null, reset: boolean = false) => {
+    if (reset) {
+      setLoading(true);
+      setOffset(0);
+    } else {
+      setLoadingMore(true);
+    }
     setError(null);
+
     try {
+      const currentOffset = reset ? 0 : offset;
       const tickerParam = ticker ? `&ticker=${ticker}` : '';
       const userParam = userId ? `&userId=${userId}` : '';
+      const offsetParam = `&offset=${currentOffset}`;
       console.log(`🔵 [FRONTEND] Fetching news from Next.js proxy: /api/news/${vertical}`);
-      const response = await fetch(`/api/news/${vertical}?limit=20${tickerParam}${userParam}`);
+      const response = await fetch(`/api/news/${vertical}?limit=20${tickerParam}${userParam}${offsetParam}`);
       if (!response.ok) throw new Error('Failed to fetch news');
       const data = await response.json();
-      setNews(data.news);
+
+      if (reset) {
+        setNews(data.news);
+      } else {
+        setNews(prev => [...prev, ...data.news]);
+      }
+
+      // If we got less than 20 items, there's no more to load
+      setHasMore(data.news.length === 20);
     } catch (err) {
       setError('The system is currently undergoing maintenance. We will be back shortly.');
       console.error('Error fetching news:', err);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   };
 
   const handleTickerSelect = (ticker: string | null) => {
     setSelectedTicker(ticker);
+  };
+
+  const handleLoadMore = () => {
+    const newOffset = offset + 20;
+    setOffset(newOffset);
+    fetchNews(activeTab, selectedTicker, false);
   };
 
   const handleGenerateAI = async (articleId: number) => {
@@ -621,6 +650,55 @@ export default function NewsFeeds({ initialCategory = 'crypto', userId }: NewsFe
                 </article>
               ))}
             </div>
+
+            {/* Load More Button */}
+            {hasMore && !loadingMore && (
+              <div className="mt-8 text-center">
+                <button
+                  onClick={handleLoadMore}
+                  className="px-8 py-4 rounded-xl font-bold text-base transition-all duration-300 hover:scale-105 hover:shadow-2xl border-2"
+                  style={{
+                    backgroundColor: categoryTheme.glow,
+                    color: categoryTheme.primary,
+                    borderColor: categoryTheme.border,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = categoryTheme.primary;
+                    e.currentTarget.style.color = theme.colors.background.primary;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = categoryTheme.glow;
+                    e.currentTarget.style.color = categoryTheme.primary;
+                  }}
+                >
+                  📰 Load More Articles
+                </button>
+              </div>
+            )}
+
+            {/* Loading More Indicator */}
+            {loadingMore && (
+              <div className="mt-8 text-center">
+                <div className="inline-flex items-center gap-3 px-6 py-4 rounded-xl" style={{ backgroundColor: categoryTheme.glow }}>
+                  <div
+                    className="w-5 h-5 border-2 border-transparent rounded-full animate-spin"
+                    style={{ borderTopColor: categoryTheme.primary }}
+                  />
+                  <span className="font-semibold" style={{ color: categoryTheme.primary }}>
+                    Loading more articles...
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* No More Articles */}
+            {!hasMore && news.length > 0 && (
+              <div className="mt-8 text-center">
+                <p className="text-slate-400 font-medium">
+                  🎉 You've reached the end of the news feed
+                </p>
+              </div>
+            )}
           </>
         )}
       </div>

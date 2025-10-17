@@ -6,9 +6,11 @@ interface AIBadgeProps {
   sentiment?: {
     label: 'bullish' | 'bearish' | 'neutral' | 'favorable' | 'unfavorable';
     confidence: number;
+    reasoning: string;
   };
   priceImpact?: {
     level: 'critical' | 'high' | 'medium' | 'low';
+    reasoning: string;
   };
   userTier: 'free' | 'premium' | 'pro';
   onClick?: () => void;
@@ -150,6 +152,11 @@ export default function AIBadge({ sentiment, priceImpact, userTier, onClick }: A
           <span className={`text-[10px] font-semibold leading-tight ${sentimentStyle.textColor} opacity-80`}>
             {confidencePercentage}% confidence
           </span>
+          {sentiment.reasoning && (
+            <span className={`text-[10px] leading-tight ${sentimentStyle.textColor} opacity-70 mt-0.5`}>
+              {sentiment.reasoning}
+            </span>
+          )}
         </div>
       </div>
 
@@ -164,9 +171,16 @@ export default function AIBadge({ sentiment, priceImpact, userTier, onClick }: A
         title={isClickable ? 'Click for full AI analysis' : 'Pro tier required for full analysis'}
       >
         <ImpactIcon className={`w-4 h-4 ${impactStyle.iconColor}`} />
-        <span className={`text-xs font-bold ${impactStyle.textColor}`}>
-          {impactStyle.text}
-        </span>
+        <div className="flex flex-col">
+          <span className={`text-xs font-bold leading-tight ${impactStyle.textColor}`}>
+            {impactStyle.text}
+          </span>
+          {priceImpact.reasoning && (
+            <span className={`text-[10px] leading-tight ${impactStyle.textColor} opacity-70 mt-0.5`}>
+              {priceImpact.reasoning}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

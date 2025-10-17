@@ -49,7 +49,8 @@ export async function getRecentNews(
   vertical?: string,
   ticker?: string,
   limit: number = 20,
-  delayMinutes: number = 0
+  delayMinutes: number = 0,
+  offset: number = 0
 ): Promise<ProcessedNewsItem[]> {
   let whereClause = '';
   let params: any[] = [];
@@ -77,6 +78,7 @@ export async function getRecentNews(
 
   whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
   params.push(limit);
+  params.push(offset);
 
   const rows = await query<ProcessedNewsItem>(
     `SELECT id, source, category as vertical, ticker, title, content, url, hash, published_at, fetched_at, delivered_at, metadata,
@@ -84,7 +86,8 @@ export async function getRecentNews(
      FROM news_items
      ${whereClause}
      ORDER BY published_at DESC
-     LIMIT $${params.length}`,
+     LIMIT $${params.length - 1}
+     OFFSET $${params.length}`,
     params
   );
 

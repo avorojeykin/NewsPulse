@@ -78,7 +78,7 @@ app.get('/api/news', async (req, res) => {
 app.get('/api/news/:vertical', async (req, res) => {
   try {
     const { vertical } = req.params;
-    const { limit, ticker, userId } = req.query;
+    const { limit, ticker, userId, offset } = req.query;
 
     if (!['crypto', 'stocks', 'sports'].includes(vertical)) {
       return res.status(400).json({ error: 'Invalid vertical' });
@@ -103,7 +103,8 @@ app.get('/api/news/:vertical', async (req, res) => {
       vertical,
       ticker as string | undefined,
       limit ? parseInt(limit as string) : 20,
-      delayMinutes
+      delayMinutes,
+      offset ? parseInt(offset as string) : 0
     );
     res.json({ news, count: news.length });
   } catch (error) {

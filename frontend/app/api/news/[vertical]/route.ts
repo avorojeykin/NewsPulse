@@ -10,9 +10,10 @@ export async function GET(
     const limit = searchParams.get('limit') || '20';
     const ticker = searchParams.get('ticker');
     const userId = searchParams.get('userId');
+    const offset = searchParams.get('offset') || '0';
 
     // Build query params
-    const queryParams = new URLSearchParams({ limit });
+    const queryParams = new URLSearchParams({ limit, offset });
     if (ticker) {
       queryParams.append('ticker', ticker);
     }
