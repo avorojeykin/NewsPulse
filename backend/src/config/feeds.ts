@@ -22,11 +22,9 @@ export const RSS_FEEDS = {
     { name: 'Wall Street Journal', url: 'https://feeds.a.dj.com/rss/RSSMarketsMain.xml' },
     { name: 'Investor Business Daily', url: 'https://www.investors.com/feed/' },
     { name: 'Business Insider Markets', url: 'https://markets.businessinsider.com/rss/news' },
-    { name: 'TradingView News', url: 'https://www.tradingview.com/feed/' },
     { name: 'CNBC Top News', url: 'https://www.cnbc.com/id/100003114/device/rss/rss.html' },
     // Keep some title-only feeds for broader coverage
     { name: 'Yahoo Finance', url: 'https://finance.yahoo.com/news/rssindex' },
-    { name: 'Seeking Alpha', url: 'https://seekingalpha.com/feed.xml' },
     { name: 'Benzinga', url: 'https://www.benzinga.com/feed' },
   ],
   sports: [
