@@ -18,7 +18,7 @@ export function generateAnalysisPrompt(config: PromptConfig): string {
 
   const categoryContext = getCategoryContext(category, ticker);
 
-  return `Expert ${categoryContext.expertType} analyst. Be CRITICAL and REALISTIC.
+  return `You are a ${categoryContext.expertType} analyst. Analyze this news and respond with ONLY valid JSON. NO explanations, NO markdown, NO additional text.
 
 ${categoryContext.context}
 
@@ -34,7 +34,7 @@ CONFIDENCE RULES (use full 0.3-0.95 range):
 
 ${categoryContext.impactGuidelines}
 
-Return ONLY this JSON:
+CRITICAL: Your entire response must be ONLY this exact JSON structure. Do not add any text before or after. Start with { and end with }:
 {
   "sentiment": {
     "label": ${category === 'sports' ? '"favorable"|"unfavorable"|"neutral"' : '"bullish"|"bearish"|"neutral"'},

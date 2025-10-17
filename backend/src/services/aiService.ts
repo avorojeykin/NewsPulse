@@ -187,14 +187,27 @@ export class AIService {
           console.log(`ℹ️ [AI-SERVICE] No code blocks found, using raw content`);
         }
 
-        // Try 2: Parse as-is
-        console.log(`🔍 [AI-SERVICE] Try 2: Parsing JSON (${jsonStr.length} chars)...`);
+        // Try 2: Extract JSON from text with markdown headers (e.g., "**Sentiment:**\n{...}")
+        // Look for the first { and last } to extract just the JSON object
+        const firstBrace = jsonStr.indexOf('{');
+        const lastBrace = jsonStr.lastIndexOf('}');
+
+        if (firstBrace !== -1 && lastBrace !== -1 && firstBrace < lastBrace) {
+          const extractedJson = jsonStr.substring(firstBrace, lastBrace + 1);
+          if (extractedJson !== jsonStr) {
+            console.log(`🔍 [AI-SERVICE] Try 2: Extracted JSON from position ${firstBrace} to ${lastBrace}`);
+            jsonStr = extractedJson;
+          }
+        }
+
+        // Try 3: Parse as-is
+        console.log(`🔍 [AI-SERVICE] Try 3: Parsing JSON (${jsonStr.length} chars)...`);
         try {
           analysisResult = JSON.parse(jsonStr);
           console.log(`✅ [AI-SERVICE] JSON parsed successfully`);
         } catch (firstError) {
-          console.log(`⚠️ [AI-SERVICE] Try 2 failed, attempting cleanup...`);
-          // Try 3: Remove trailing extra braces (common AI error)
+          console.log(`⚠️ [AI-SERVICE] Try 3 failed, attempting bracket cleanup...`);
+          // Try 4: Remove trailing extra braces (common AI error)
           // Find the position of the last valid closing brace
           let bracketCount = 0;
           let lastValidIndex = -1;
@@ -212,7 +225,7 @@ export class AIService {
 
           if (lastValidIndex > 0) {
             const cleanedJson = jsonStr.substring(0, lastValidIndex + 1);
-            console.log(`🔍 [AI-SERVICE] Try 3: Parsing cleaned JSON (${cleanedJson.length} chars)...`);
+            console.log(`🔍 [AI-SERVICE] Try 4: Parsing cleaned JSON (${cleanedJson.length} chars)...`);
             analysisResult = JSON.parse(cleanedJson);
             console.log('⚠️  [AI-SERVICE] Fixed malformed JSON by removing trailing characters');
           } else {
